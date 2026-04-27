@@ -2,29 +2,29 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
     <metadata>
         <id>meshcommander</id>
-        <version>0.9.6</version>
+        <version>0.9.7</version>
         <title>MeshCommander</title>
         <authors>Ylian Saint-Hilaire</authors>
         <owners>opnsrc.dev</owners>
-        <projectUrl>https://www.meshcommander.com/meshcommander</projectUrl>
+        <projectUrl>https://www.meshcommander.com/</projectUrl>
         <iconUrl>https://rawcdn.githack.com/mkopnsrc/chocolatey-packages/aee32a64da34a84167821b9274aac353b7a9deba/icons/MeshCommander.png</iconUrl>
-        <packageSourceUrl>https://github.com/mkopnsrc/chocolatey-packages/tree/master/automatic/filebeat-oss</packageSourceUrl>
+        <packageSourceUrl>https://github.com/mkopnsrc/chocolatey-packages/tree/master/automatic/meshcommander</packageSourceUrl>
         <licenseUrl>https://opensource.org/licenses/Apache-2.0</licenseUrl>
         <requireLicenseAcceptance>false</requireLicenseAcceptance>
-        <releaseNotes>https://www.meshcommander.com/meshcommander</releaseNotes>
+        <releaseNotes>https://github.com/Ylianst/MeshCommander/releases</releaseNotes>
         <language>en-US</language>
         <bugTrackerUrl>https://github.com/Ylianst/MeshCommander/issues</bugTrackerUrl>
         <tags>meshcommander intelamt vpro ipmi remote management open-source</tags>
-		 <description>
+         <description>
 ## MeshCommander
 MeshCommander is a remote management tool of your Intel® AMT computers. For the first time, Intel AMT can be managed entirely from a browser, opening up many new possibilities and making it significantly easier to take advantage of hardware management provided by Intel® vPro.
 
-MeshCommander is the ultimate open source Intel® AMT management console. In an effort to make Intel® AMT easier, support many platforms and over the Internet usages, MeshCommander is entirely built in JavaScript. 
-You can now manage your Intel® AMT (vPro) computers from within a browser or as a standalone tool. 
+MeshCommander is the ultimate open source Intel® AMT management console. In an effort to make Intel® AMT easier, support many platforms and over the Internet usages, MeshCommander is entirely built in JavaScript.
+You can now manage your Intel® AMT (vPro) computers from within a browser or as a standalone tool.
         </description>
         <summary>MeshCommander is can now manage your Intel® AMT (vPro) computers from within a browser or as a standalone tool.</summary>
     </metadata>
-	<files>
-    <file src="tools\**" target="tools" />
-  </files>
+    <files>
+        <file src="tools\**" target="tools" />
+    </files>
 </package>

@@ -1,0 +1,100 @@
+name: Build, Test, and Push Package
+
+# Manual-dispatch loop for building one Chocolatey package, installing it on a
+# fresh Windows runner, verifying the install registers in the registry,
+# uninstalling, and (optionally) pushing to community.chocolatey.org.
+#
+# Required repo secrets when `publish: true`:
+#   CHOCO_API_KEY  - chocolatey.org community feed API key
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package directory under automatic/ (e.g. meshcommander)'
+        required: true
+        type: string
+        default: 'meshcommander'
+      run_au:
+        description: 'Run update.ps1 first to refresh URL/checksum from vendor'
+        type: boolean
+        required: true
+        default: true
+      publish:
+        description: 'Push to chocolatey.org after a successful test'
+        type: boolean
+        required: true
+        default: false
+
+jobs:
+  build-test-push:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PACKAGE: ${{ inputs.package }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate package directory exists
+        run: |
+          $dir = "automatic/$env:PACKAGE"
+          if (-not (Test-Path $dir)) { throw "Package directory not found: $dir" }
+          Write-Host "Building package from $dir"
+
+      - name: Run AU update.ps1 (refresh URL/checksum from vendor)
+        if: ${{ inputs.run_au }}
+        working-directory: automatic/${{ inputs.package }}
+        run: |
+          Import-Module $env:GITHUB_WORKSPACE\AU\AU.psm1 -Force
+          ./update.ps1
+
+      - name: Pack
+        working-directory: automatic/${{ inputs.package }}
+        run: |
+          choco pack --out $env:RUNNER_TEMP
+          Get-ChildItem $env:RUNNER_TEMP\*.nupkg | ForEach-Object {
+            Write-Host "Built: $($_.Name) ($([math]::Round($_.Length/1KB,1)) KB)"
+          }
+
+      - name: Install package from local source
+        run: |
+          choco install $env:PACKAGE `
+            --source "$env:RUNNER_TEMP;https://community.chocolatey.org/api/v2/" `
+            --confirm --no-progress
+
+      - name: Verify install registered in Windows registry
+        run: |
+          $found = Get-ItemProperty `
+            'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*', `
+            'HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*' `
+            -ErrorAction SilentlyContinue |
+            Where-Object { $_.DisplayName -match $env:PACKAGE }
+          if (-not $found) {
+            throw "$env:PACKAGE not found in registry after install"
+          }
+          $found | Select-Object DisplayName, DisplayVersion, Publisher | Format-Table
+
+      - name: Uninstall
+        run: choco uninstall $env:PACKAGE --confirm --no-progress
+
+      - name: Push to chocolatey.org community feed
+        if: ${{ inputs.publish }}
+        env:
+          CHOCO_API_KEY: ${{ secrets.CHOCO_API_KEY }}
+        run: |
+          if (-not $env:CHOCO_API_KEY) { throw 'CHOCO_API_KEY repo secret is not set' }
+          $nupkg = (Get-ChildItem $env:RUNNER_TEMP\*.nupkg | Select-Object -First 1).FullName
+          choco apikey --key $env:CHOCO_API_KEY --source 'https://push.chocolatey.org/'
+          choco push $nupkg --source 'https://push.chocolatey.org/' --timeout 300
+
+      - name: Upload nupkg artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.package }}-nupkg
+          path: ${{ runner.temp }}/*.nupkg
+          retention-days: 14
