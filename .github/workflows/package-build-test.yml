@@ -57,6 +57,10 @@ jobs:
       - name: Pack
         working-directory: automatic/${{ inputs.package }}
         run: |
+          [xml]$nuspec = Get-Content "$env:PACKAGE.nuspec"
+          $version = $nuspec.package.metadata.version
+          "PACKAGE_VERSION=$version" >> $env:GITHUB_ENV
+          Write-Host "Version: $version"
           choco pack --out $env:RUNNER_TEMP
           Get-ChildItem $env:RUNNER_TEMP\*.nupkg | ForEach-Object {
             Write-Host "Built: $($_.Name) ($([math]::Round($_.Length/1KB,1)) KB)"
@@ -94,9 +98,9 @@ jobs:
           choco push $nupkg --source 'https://push.chocolatey.org/' --timeout 300
 
       - name: Upload nupkg artifact
-        if: always()
+        if: always() && env.PACKAGE_VERSION != ''
         uses: actions/upload-artifact@v5
         with:
-          name: ${{ inputs.package }}-nupkg
+          name: ${{ inputs.package }}-${{ env.PACKAGE_VERSION }}-nupkg
           path: ${{ runner.temp }}/*.nupkg
           retention-days: 14
