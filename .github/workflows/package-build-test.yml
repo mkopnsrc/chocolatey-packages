@@ -37,7 +37,7 @@ jobs:
       PACKAGE: ${{ inputs.package }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Validate package directory exists
         run: |
@@ -45,12 +45,14 @@ jobs:
           if (-not (Test-Path $dir)) { throw "Package directory not found: $dir" }
           Write-Host "Building package from $dir"
 
+      - name: Install AU module to PSModulePath
+        run: |
+          & "$env:GITHUB_WORKSPACE\install.ps1" -module_path "$env:GITHUB_WORKSPACE\AU"
+
       - name: Run AU update.ps1 (refresh URL/checksum from vendor)
         if: ${{ inputs.run_au }}
         working-directory: automatic/${{ inputs.package }}
-        run: |
-          Import-Module $env:GITHUB_WORKSPACE\AU\AU.psm1 -Force
-          ./update.ps1
+        run: ./update.ps1
 
       - name: Pack
         working-directory: automatic/${{ inputs.package }}
@@ -93,7 +95,7 @@ jobs:
 
       - name: Upload nupkg artifact
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ inputs.package }}-nupkg
           path: ${{ runner.temp }}/*.nupkg
