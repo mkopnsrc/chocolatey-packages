@@ -10,9 +10,13 @@ function global:au_BeforeUpdate {
     #Get-RemoteFiles -Purge
 }
 function global:au_GetLatest() {
-    $download_page = Invoke-WebRequest $releases
-    $parsedHtml = ConvertFrom-Html -Content $download_page.RawContent
-    $version = (($parsedHtml.SelectNodes('//p') | ? { $_.InnerText -match 'Version:'}).InnerText | Select-String '\d+(?:\.\d+)+').Matches.Value
+    if ($global:au_Version) {
+        $version = $global:au_Version
+    } else {
+        $download_page = Invoke-WebRequest $releases
+        $parsedHtml = ConvertFrom-Html -Content $download_page.RawContent
+        $version = (($parsedHtml.SelectNodes('//p') | ? { $_.InnerText -match 'Version:'}).InnerText | Select-String '\d+(?:\.\d+)+').Matches.Value
+    }
 
     $url   = "https://artifacts.elastic.co/downloads/beats/heartbeat/heartbeat-oss-$($version)-windows-x86_64.msi"
     $url64 = "https://artifacts.elastic.co/downloads/beats/heartbeat/heartbeat-oss-$($version)-windows-x86_64.msi"
