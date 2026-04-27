@@ -1,8 +1,9 @@
 name: Build, Test, and Push Package
 
-# Manual-dispatch loop for building one Chocolatey package, installing it on a
-# fresh Windows runner, verifying the install registers in the registry,
-# uninstalling, and (optionally) pushing to community.chocolatey.org.
+# Reusable workflow for building one Chocolatey package, installing it on a
+# fresh Windows runner, verifying the install, uninstalling, and (optionally)
+# pushing to community.chocolatey.org. Triggered manually via workflow_dispatch
+# or programmatically by other workflows (e.g. backfill.yml) via workflow_call.
 #
 # Required repo secrets when `publish: true`:
 #   CHOCO_API_KEY  - chocolatey.org community feed API key
@@ -25,6 +26,30 @@ on:
         type: boolean
         required: true
         default: false
+      force_version:
+        description: 'Force a specific version (sets $global:au_Version). Empty = latest from vendor.'
+        type: string
+        required: false
+        default: ''
+
+  workflow_call:
+    inputs:
+      package:
+        required: true
+        type: string
+      run_au:
+        required: true
+        type: boolean
+      publish:
+        required: true
+        type: boolean
+      force_version:
+        required: false
+        type: string
+        default: ''
+    secrets:
+      CHOCO_API_KEY:
+        required: false
 
 jobs:
   build-test-push:
@@ -35,6 +60,7 @@ jobs:
         shell: pwsh
     env:
       PACKAGE: ${{ inputs.package }}
+      FORCE_VERSION: ${{ inputs.force_version }}
 
     steps:
       - uses: actions/checkout@v5
@@ -44,6 +70,7 @@ jobs:
           $dir = "automatic/$env:PACKAGE"
           if (-not (Test-Path $dir)) { throw "Package directory not found: $dir" }
           Write-Host "Building package from $dir"
+          if ($env:FORCE_VERSION) { Write-Host "Forcing version: $env:FORCE_VERSION" }
 
       - name: Install AU module to PSModulePath
         run: |
@@ -52,7 +79,12 @@ jobs:
       - name: Run AU update.ps1 (refresh URL/checksum from vendor)
         if: ${{ inputs.run_au }}
         working-directory: automatic/${{ inputs.package }}
-        run: ./update.ps1
+        run: |
+          if ($env:FORCE_VERSION) {
+            $global:au_Version = $env:FORCE_VERSION
+            Write-Host "Forcing au_Version: $global:au_Version"
+          }
+          ./update.ps1
 
       - name: Pack
         working-directory: automatic/${{ inputs.package }}

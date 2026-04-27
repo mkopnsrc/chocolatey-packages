@@ -1,0 +1,131 @@
+name: Backfill missing package versions
+
+# Iterates over packages with a backfill.json manifest, queries chocolatey.org
+# for which versions are already published + their moderation status, and
+# pushes the next missing version per package — but only if the previously
+# pushed version is Approved (not Pending/Submitted/Rejected). Each cron
+# tick advances each package by at most one version, so the moderation queue
+# is the implicit gate.
+#
+# Required repo secrets:
+#   CHOCO_API_KEY  - chocolatey.org community feed API key (inherited by called workflow)
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'   # every 6h
+  workflow_dispatch:
+    inputs:
+      filter_package:
+        description: 'Limit to a specific package (default: all packages with backfill.json)'
+        required: false
+        type: string
+        default: ''
+      dry_run:
+        description: 'Plan only — do not push'
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  plan:
+    name: Compute backfill plan
+    runs-on: ubuntu-latest
+    outputs:
+      plan: ${{ steps.compute.outputs.plan }}
+      has_work: ${{ steps.compute.outputs.has_work }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Compute next-version per package
+        id: compute
+        shell: pwsh
+        env:
+          FILTER: ${{ inputs.filter_package }}
+        run: |
+          $manifests = Get-ChildItem automatic/*/backfill.json -ErrorAction SilentlyContinue
+          if (-not $manifests) {
+            Write-Host "No backfill.json manifests found under automatic/*/"
+            "plan=[]" >> $env:GITHUB_OUTPUT
+            "has_work=false" >> $env:GITHUB_OUTPUT
+            return
+          }
+
+          $plan = @()
+          foreach ($mf in $manifests) {
+            $pkg = Split-Path -Leaf (Split-Path $mf.FullName)
+            if ($env:FILTER -and $env:FILTER -ne $pkg) { continue }
+
+            try {
+              $targets = (Get-Content $mf.FullName -Raw | ConvertFrom-Json).versions
+            } catch {
+              Write-Host "::warning::$pkg : invalid backfill.json ($_); skipping"
+              continue
+            }
+            if (-not $targets) {
+              Write-Host "$pkg : empty versions list; skipping"
+              continue
+            }
+
+            $url = "https://community.chocolatey.org/api/v2/Packages?`$filter=Id eq '$pkg'&`$orderby=Version desc&`$top=50"
+            try {
+              $response = Invoke-WebRequest -Uri $url -UseBasicParsing -UserAgent 'mkopnsrc-backfill/1.0'
+            } catch {
+              Write-Host "::warning::$pkg : CCR query failed ($_); skipping"
+              continue
+            }
+
+            [xml]$xml = $response.Content
+            $existing = @{}
+            foreach ($entry in $xml.feed.entry) {
+              $v = $entry.properties.Version
+              $s = $entry.properties.PackageStatus
+              if ($v) { $existing[[string]$v] = [string]$s }
+            }
+
+            $statusSummary = if ($existing.Count -gt 0) {
+              ($existing.GetEnumerator() | Sort-Object Name -Descending | Select-Object -First 5 |
+                ForEach-Object { '{0}={1}' -f $_.Key, $_.Value }) -join ', '
+            } else { '(no versions on CCR)' }
+            Write-Host "$pkg : $statusSummary"
+
+            $blocking = $existing.GetEnumerator() | Where-Object { $_.Value -in @('Submitted', 'Pending') }
+            if ($blocking) {
+              Write-Host "::notice::$pkg : pending submission(s) — $($blocking.Key -join ', ') — skipping this cycle"
+              continue
+            }
+            $rejected = $existing.GetEnumerator() | Where-Object { $_.Value -eq 'Rejected' }
+            if ($rejected) {
+              Write-Host "::error::$pkg : REJECTED submission(s) — $($rejected.Key -join ', ') — manual intervention needed"
+              continue
+            }
+
+            $next = $targets | Where-Object { -not $existing.ContainsKey($_) } | Select-Object -First 1
+            if ($next) {
+              Write-Host "::notice::$pkg : queueing push for version $next"
+              $plan += [pscustomobject]@{ package = $pkg; version = $next }
+            } else {
+              Write-Host "$pkg : caught up (all backfill targets present in CCR)"
+            }
+          }
+
+          $json = if ($plan) { ConvertTo-Json -InputObject @($plan) -Compress } else { '[]' }
+          "plan=$json" >> $env:GITHUB_OUTPUT
+          "has_work=$($plan.Count -gt 0)" >> $env:GITHUB_OUTPUT
+          Write-Host "---"
+          Write-Host "Plan: $json"
+
+  push:
+    name: "Push ${{ matrix.target.package }} ${{ matrix.target.version }}"
+    needs: plan
+    if: needs.plan.outputs.has_work == 'True' && inputs.dry_run != true
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJson(needs.plan.outputs.plan) }}
+    uses: ./.github/workflows/package-build-test.yml
+    with:
+      package: ${{ matrix.target.package }}
+      run_au: true
+      publish: true
+      force_version: ${{ matrix.target.version }}
+    secrets: inherit
