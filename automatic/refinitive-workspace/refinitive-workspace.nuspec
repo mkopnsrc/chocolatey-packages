@@ -2,27 +2,32 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
     <metadata>
         <id>refinitive-workspace</id>
-        <version>1.24.159</version>
-        <title>Refinitive Workspace (Messenger)</title>
-        <authors>Refinitive</authors>
+        <version>1.26.602</version>
+        <title>[Deprecated] Refinitive Workspace</title>
+        <authors>Refinitiv (LSEG)</authors>
         <owners>opnsrc.dev</owners>
-        <projectUrl>https://www.refinitiv.com/en/products/refinitiv-workspace/download-workspace</projectUrl>
-        <iconUrl>https://rawcdn.githack.com/mkopnsrc/chocolatey-packages/f935397734fbcc4c99df70af7ec39e3fcf9115db/icons/refinitive.png</iconUrl>
+        <projectUrl>https://www.lseg.com/en/data-analytics/products/workspace/download-workspace</projectUrl>
         <packageSourceUrl>https://github.com/mkopnsrc/chocolatey-packages/tree/master/automatic/refinitive-workspace</packageSourceUrl>
+        <licenseUrl>https://www.lseg.com/en/policies/website-disclaimer</licenseUrl>
         <requireLicenseAcceptance>false</requireLicenseAcceptance>
-        <releaseNotes>No release notes provided publicly by Refinitiv</releaseNotes>
         <language>en-US</language>
-        <tags>refinitive workspace eikon messenger thomsonareuters</tags>
-		<description>
-### Note: This Refinitiv Workspace application is owned and copyright by Refinitive. This chocolatey packages is only created and published here to easily deploy Refinitiv Workspace Application for Windows Workstations.
+        <tags>refinitive refinitiv lseg workspace deprecated finance</tags>
+        <description>
+## This package is deprecated.
 
-## Refinitiv Workspace a.k.a (Refinitiv Eikon Messenger)
+The package id `refinitive-workspace` had a typo in the brand name (the vendor is **Refinitiv**, not "Refinitive"). It has been renamed to [`refinitiv-workspace`](https://community.chocolatey.org/packages/refinitiv-workspace).
 
-Refinitiv Workspace is the financial analysis desktop and mobile solution, for access to leading data and content, Reuters news, markets and liquidity pools.
+### What you need to do
+
+* Existing installs: this package depends on `refinitiv-workspace` — `choco upgrade refinitive-workspace` will pull in the new id automatically.
+* New installs: please use [`refinitiv-workspace`](https://community.chocolatey.org/packages/refinitiv-workspace) directly.
+
+No further versions of `refinitive-workspace` will be published. All future Refinitiv Workspace updates ship under the corrected id.
         </description>
-        <summary>Refinitiv Workspace is the financial analysis desktop and mobile solution, for access to leading data and content, Reuters news, markets and liquidity pools.</summary>
+        <summary>[DEPRECATED] Renamed to refinitiv-workspace (typo fix).</summary>
+        <dependencies>
+            <dependency id="refinitiv-workspace" version="1.26.602" />
+        </dependencies>
     </metadata>
-	<files>
-        <file src="tools\**" target="tools" />
-    </files>
+    <files />
 </package>

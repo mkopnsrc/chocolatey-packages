@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+    <metadata>
+        <id>refinitiv-workspace</id>
+        <version>1.26.602</version>
+        <title>Refinitiv Workspace</title>
+        <authors>Refinitiv (LSEG)</authors>
+        <owners>opnsrc.dev</owners>
+        <projectUrl>https://www.lseg.com/en/data-analytics/products/workspace/download-workspace</projectUrl>
+        <iconUrl>https://rawcdn.githack.com/mkopnsrc/chocolatey-packages/f935397734fbcc4c99df70af7ec39e3fcf9115db/icons/refinitive.png</iconUrl>
+        <packageSourceUrl>https://github.com/mkopnsrc/chocolatey-packages/tree/master/automatic/refinitiv-workspace</packageSourceUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <releaseNotes>https://www.lseg.com/en/data-analytics/products/workspace/download-workspace</releaseNotes>
+        <language>en-US</language>
+        <tags>refinitiv lseg workspace eikon messenger thomson-reuters finance</tags>
+        <description>
+### Note: This Refinitiv Workspace application is owned and copyright by Refinitiv (now part of LSEG). This chocolatey package is only created and published here to easily deploy the Refinitiv Workspace application on Windows workstations.
+
+## Refinitiv Workspace (a.k.a. Refinitiv Eikon Messenger)
+
+Refinitiv Workspace is the financial analysis desktop and mobile solution, providing access to leading data and content, Reuters news, markets and liquidity pools.
+
+### Note on the package id rename
+
+This package replaces the legacy [`refinitive-workspace`](https://community.chocolatey.org/packages/refinitive-workspace) id, which had a typo in the brand name. New installs should use `refinitiv-workspace`. Existing installs of `refinitive-workspace` will be migrated to this id automatically via dependency resolution.
+        </description>
+        <summary>Refinitiv Workspace is the financial analysis desktop solution from Refinitiv (LSEG), providing access to data, Reuters news, markets, and liquidity pools.</summary>
+    </metadata>
+    <files>
+        <file src="tools\**" target="tools" />
+    </files>
+</package>
