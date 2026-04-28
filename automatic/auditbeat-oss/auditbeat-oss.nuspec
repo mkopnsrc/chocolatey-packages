@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+    <metadata>
+        <id>auditbeat-oss</id>
+        <version>8.14.1</version>
+        <title>Auditbeat - OSS</title>
+        <authors>ElasticSearch</authors>
+        <owners>opnsrc.dev</owners>
+        <projectUrl>https://www.elastic.co/downloads/beats/auditbeat-oss</projectUrl>
+        <iconUrl>https://rawcdn.githack.com/mkopnsrc/chocolatey-packages/081b33ffc1bb251042f21277ba060fdea727dad7/icons/elastic-beats.png</iconUrl>
+        <packageSourceUrl>https://github.com/mkopnsrc/chocolatey-packages/tree/master/automatic/auditbeat-oss</packageSourceUrl>
+        <licenseUrl>https://github.com/elastic/beats/tree/8.14/licenses/APACHE-LICENSE-2.0.txt</licenseUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <releaseNotes>https://www.elastic.co/guide/en/beats/libbeat/8.14/release-notes.html</releaseNotes>
+        <language>en-US</language>
+        <bugTrackerUrl>https://github.com/elastic/beats/issues</bugTrackerUrl>
+        <tags>auditbeat auditbeat-oss beats elastic kibana audit fim file-integrity-monitoring open-source</tags>
+         <description>
+### Note: Open Source ELK Stack does not work with agents that are based on Elastic Paid License. The apache 2.0 license (OSS) packages are limited in what it can support with ELK.
+
+## Auditbeat - OSS is open-source, based on Apache2.0 License which is for open source ELK Stack.
+
+Auditbeat is a lightweight shipper that you can install on your servers to audit the activities of users and processes on your systems. Auditbeat collects events directly from the Windows Event Log audit subsystem and from file integrity checks, then ships them in real time to Elasticsearch or Logstash for analysis in Kibana.
+
+Auditbeat helps you:
+
+* **Detect changes to critical files**, like binaries and configuration files, with the file_integrity module.
+* **Identify potential security policy violations** by monitoring user and process activity on your systems.
+* **Centralize your audit data** alongside the rest of your operational data so you can correlate events across your environment.
+
+Auditbeat ships with built-in modules — `file_integrity` (file integrity monitoring on Windows, Linux, and macOS) and `system` (process, login, socket, host, package, and user metrics) — that simplify collection, parsing, and visualization of audit events.
+        </description>
+        <summary>Auditbeat-OSS is a free, Apache-2.0-licensed audit data shipper intended for legacy open-source Logstash and Elasticsearch deployments. It collects file-integrity-monitoring and system-audit events and ships them to Elasticsearch or Logstash for analysis in Kibana.</summary>
+    </metadata>
+    <files>
+        <file src="tools\**" target="tools" />
+    </files>
+</package>
