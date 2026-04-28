@@ -159,3 +159,88 @@ jobs:
       publish: true
       force_version: ${{ matrix.target.version }}
     secrets: inherit
+
+  commit-pr:
+    name: Open aggregated PR with bumped package files
+    needs: push
+    if: ${{ always() && needs.plan.outputs.has_work == 'True' && inputs.dry_run != true }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download all bumped-package artifacts from this run
+        uses: actions/download-artifact@v5
+        with:
+          path: /tmp/pkgfiles
+          pattern: pkgfiles-*
+        continue-on-error: true
+
+      - name: Apply artifacts to working tree
+        shell: pwsh
+        run: |
+          if (-not (Test-Path '/tmp/pkgfiles')) {
+            Write-Host "No pkgfiles-* artifacts present — nothing to commit"
+            "APPLIED_COUNT=0" >> $env:GITHUB_ENV
+            return
+          }
+          $applied = @()
+          foreach ($dir in (Get-ChildItem '/tmp/pkgfiles' -Directory)) {
+            if ($dir.Name -match '^pkgfiles-(.+?)-([\d.]+)$') {
+              $pkg = $matches[1]
+              $version = $matches[2]
+              $dst = "automatic/$pkg"
+              if (-not (Test-Path $dst)) {
+                Write-Host "::warning::Destination $dst does not exist; skipping $($dir.Name)"
+                continue
+              }
+              Write-Host "Applying $($dir.Name) -> $dst"
+              Copy-Item -Recurse -Force "$($dir.FullName)/*" "$dst/"
+              $applied += "$pkg=$version"
+            } else {
+              Write-Host "::warning::Unexpected artifact name: $($dir.Name)"
+            }
+          }
+          "APPLIED_COUNT=$($applied.Count)" >> $env:GITHUB_ENV
+          "APPLIED_LIST=$($applied -join '|')" >> $env:GITHUB_ENV
+          Write-Host "Applied: $($applied -join ', ')"
+
+      - name: Commit and open PR
+        if: env.APPLIED_COUNT != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          DATE=$(date -u +%Y-%m-%d-%H%M)
+          BRANCH="bot/backfill-${DATE}"
+          git checkout -b "$BRANCH"
+          git add automatic/
+          if git diff --cached --quiet; then
+            echo "No changes to commit (artifacts applied but no diff vs master)"
+            exit 0
+          fi
+          # Build PR body bullet list from APPLIED_LIST (pipe-separated pkg=version)
+          BODY_LINES=""
+          IFS='|' read -ra ITEMS <<< "$APPLIED_LIST"
+          for item in "${ITEMS[@]}"; do
+            BODY_LINES="${BODY_LINES}- \`${item%%=*}\` -> \`${item##*=}\`"$'\n'
+          done
+          TITLE="automated: backfill ${DATE} (${APPLIED_COUNT} packages)"
+          BODY="The packages below were pushed to chocolatey.org during this backfill cycle. This PR keeps the repo files in sync with what was published.
+
+          Bumped:
+          ${BODY_LINES}
+          Each push was install-tested on a fresh \`windows-2022\` runner and submitted to chocolatey.org's moderation queue. Merging this PR has no further publishing side-effect.
+          "
+          git commit -m "${TITLE}"
+          git push origin "$BRANCH"
+          gh pr create \
+            --base master \
+            --head "$BRANCH" \
+            --assignee mkopnsrc \
+            --title "${TITLE}" \
+            --body "${BODY}"
