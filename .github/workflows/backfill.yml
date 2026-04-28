@@ -66,37 +66,28 @@ jobs:
               continue
             }
 
-            # CCR has multiple OData endpoints with INCONSISTENT data:
-            # - The direct-key endpoint Packages(Id=...,Version=...) returns
-            #   stale "Approved/IsApproved=true" data for packages that are
-            #   still in the moderation queue.
-            # - The $filter endpoint correctly reflects moderation state
-            #   (Submitted/IsApproved=false/Published=1900-01-01) for pending
-            #   versions, and (Approved/IsApproved=true/Published=<real date>)
-            #   for fully-published ones.
-            # The public package page at /packages/<id>/<version> agrees with
-            # the $filter endpoint, so we treat $filter as authoritative.
+            # CCR's OData feed (every variant of it — direct-key, FindPackagesById,
+            # $filter on Id+Version) returns stale "Approved/IsApproved=true" data
+            # from at least the Azure runner's network edge for packages that
+            # are still in moderation. Empirical: querying the same URL from a
+            # local Linux machine returns Submitted/IsApproved=false; from the
+            # GitHub-hosted runner it returns Approved/IsApproved=true. There is
+            # no version of the OData feed we can rely on across networks.
             #
-            # A version is considered "fully approved and published" only when:
-            #   PackageStatus = Approved
-            #   AND IsApproved = true
-            #   AND Published date is not the 1900-01-01 placeholder
+            # The public HTML detail page at /packages/<id>/<version> is
+            # consistent across networks and clearly marks moderation state.
+            # Approved versions contain the literal text:
+            #     "This package was approved as"
+            # Pending versions never contain that text. Rejected versions
+            # contain "rejected by" near "package".
             function Get-CcrApprovalState($pkg, $version) {
-              $url = "https://community.chocolatey.org/api/v2/Packages?`$filter=Id eq '$pkg' and Version eq '$version'"
+              $url = "https://community.chocolatey.org/packages/$pkg/$version"
               try {
                 $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -UserAgent 'mkopnsrc-backfill/1.0'
-                if ($resp.Content -notmatch '<entry>') { return $null }   # 404-equivalent: not on CCR
-
-                $statusMatch    = [regex]::Match($resp.Content, '<d:PackageStatus[^>]*>([^<]+)</d:PackageStatus>')
-                $approvedMatch  = [regex]::Match($resp.Content, '<d:IsApproved[^>]*>([^<]+)</d:IsApproved>')
-                $publishedMatch = [regex]::Match($resp.Content, '<d:Published[^>]*>([^<]+)</d:Published>')
-
-                $status      = if ($statusMatch.Success)    { $statusMatch.Groups[1].Value.Trim() }    else { 'Unknown' }
-                $isApproved  = $approvedMatch.Success -and $approvedMatch.Groups[1].Value.Trim() -eq 'true'
-                $isPublished = $publishedMatch.Success -and $publishedMatch.Groups[1].Value.Trim() -notmatch '^1900-'
-
-                if ($status -eq 'Rejected') { return 'Rejected' }
-                if ($status -eq 'Approved' -and $isApproved -and $isPublished) { return 'Approved' }
+                $html = $resp.Content
+                if ($html -match 'This package was approved as') { return 'Approved' }
+                if ($html -match 'rejected by .{0,40}moderator') { return 'Rejected' }
+                # Page exists, no approved/rejected marker → still in queue
                 return 'Pending'
               } catch {
                 if ($_.Exception.Response.StatusCode.value__ -eq 404 -or $_.Exception.Message -match '404') {
