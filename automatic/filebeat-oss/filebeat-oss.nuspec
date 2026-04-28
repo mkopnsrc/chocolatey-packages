@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
     <metadata>
         <id>filebeat-oss</id>
-        <version>9.3.0</version>
+        <version>9.3.1</version>
         <title>Filebeat - OSS</title>
         <authors>ElasticSearch</authors>
         <owners>opnsrc.dev</owners>

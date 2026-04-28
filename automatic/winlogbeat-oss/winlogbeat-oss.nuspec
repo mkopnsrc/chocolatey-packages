@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
     <metadata>
         <id>winlogbeat-oss</id>
-        <version>9.3.1</version>
+        <version>9.3.2</version>
         <title>Winlogbeat - OSS</title>
         <authors>ElasticSearch</authors>
         <owners>opnsrc.dev</owners>
