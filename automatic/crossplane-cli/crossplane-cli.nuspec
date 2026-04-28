@@ -23,7 +23,7 @@ The Crossplane command-line interface — `crank` — is the official CLI for [C
 
 `crank` lets platform engineers build, test, package, and ship Crossplane Configurations and Functions:
 
-* **Build & push** Configurations and Functions as OCI artifacts (`crank xpkg build`, `crank xpkg push`).
+* **Build and push** Configurations and Functions as OCI artifacts (`crank xpkg build`, `crank xpkg push`).
 * **Render** Compositions locally for fast iteration (`crank render`).
 * **Test** Compositions with `crank test render` and `crank test e2e`.
 * **Beta features** for new Crossplane v2 capabilities accessible via `crank beta`.
