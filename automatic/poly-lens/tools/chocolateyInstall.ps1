@@ -15,7 +15,10 @@ $packageArgs = @{
     url            = 'https://swupdate.lens.poly.com/lens-desktop-windows/1.3.1/1.3.1/PolyLens-1.3.1.msi'
     checksum       = '7d0f781a48f00c6d215e51385660c80d9a94264ce3d541d48cc052795f8dcf20'
     checksumType   = 'SHA256'
-    silentArgs     = "/qn /norestart /l*v `"$msiLog`""
+    # ACCEPTEULA=YES propagates to chained child MSIs (LensControlService +
+    # LensDesktop). Without it the chainer's children fail post-install and
+    # return 1603 to the wrapper, even though the main MSI itself succeeds.
+    silentArgs     = "/qn /norestart /l*v `"$msiLog`" ACCEPTEULA=YES"
     validExitCodes = @(
         0,           # success
         3010,        # success, restart required
@@ -29,16 +32,6 @@ $alreadyInstalled = (AlreadyInstalled -AppName $packageArgs['softwareName'] -App
 if ($alreadyInstalled -and ($env:ChocolateyForce -ne $true)) {
     Write-Output ($packageArgs['softwareName'] + ' is already installed. Use --force to re-install.')
 } else {
-    # Poly Lens 2.x bundles two child MSIs (PolyLensControlService + LensDesktop)
-    # via an embedded chainer. WebView2 Runtime is a common chained-MSI
-    # prerequisite on HP/Poly desktop apps; pre-install it so the chainer
-    # doesn't trip on a missing dependency.
-    Write-Host 'Pre-installing WebView2 Runtime (Poly Lens 2.x chainer dependency)...'
-    & choco install webview2-runtime --confirm --no-progress --limit-output 2>&1 | Out-Host
-    if ($LASTEXITCODE -ne 0) {
-        Write-Warning "WebView2 pre-install returned $LASTEXITCODE (continuing anyway)"
-    }
-
     try {
         Install-ChocolateyPackage @packageArgs
     } catch {
