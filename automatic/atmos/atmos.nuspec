@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+    <metadata>
+        <id>atmos</id>
+        <version>1.216.0</version>
+        <title>Atmos</title>
+        <authors>Cloud Posse</authors>
+        <owners>opnsrc.dev</owners>
+        <projectUrl>https://atmos.tools</projectUrl>
+        <iconUrl>https://rawcdn.githack.com/cloudposse/atmos/main/website/static/img/atmos-logo.svg</iconUrl>
+        <packageSourceUrl>https://github.com/mkopnsrc/chocolatey-packages/tree/master/automatic/atmos</packageSourceUrl>
+        <licenseUrl>https://github.com/cloudposse/atmos/blob/main/LICENSE</licenseUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <releaseNotes>https://github.com/cloudposse/atmos/releases</releaseNotes>
+        <docsUrl>https://atmos.tools</docsUrl>
+        <bugTrackerUrl>https://github.com/cloudposse/atmos/issues</bugTrackerUrl>
+        <language>en-US</language>
+        <tags>atmos cloudposse terraform opentofu helmfile devops platform-engineering iac infrastructure</tags>
+        <description>
+## Atmos
+
+[Atmos](https://atmos.tools) is a workflow tool for DevOps that orchestrates Terraform, OpenTofu, Helmfile, and other tools across multi-account, multi-region, multi-environment cloud architectures. From [Cloud Posse](https://cloudposse.com).
+
+Key features:
+
+* **Configuration as code** — YAML stack files describe your environments, accounts, and component compositions; Atmos generates the Terraform/Helmfile invocations.
+* **DRY infrastructure** — share component definitions across stacks; override per-stack settings without copying entire modules.
+* **Multi-tool orchestration** — run Terraform, OpenTofu, Helmfile, and custom commands through a unified `atmos` CLI.
+* **Workflows** — chain commands across stacks and components into reusable named workflows.
+* **Validation** — validate components and stacks before they hit `apply`.
+
+This package installs the `atmos` binary into chocolatey's `tools` directory, where it's automatically added to `PATH` via chocolatey's shim.
+
+### Versioning
+
+Tracks the upstream `cloudposse/atmos` GitHub releases. Each new release is auto-detected by the maintainer's CI.
+        </description>
+        <summary>Atmos by Cloud Posse — workflow tool that orchestrates Terraform, OpenTofu, and Helmfile across multi-account, multi-region cloud architectures.</summary>
+    </metadata>
+    <files>
+        <file src="tools\**" target="tools" />
+    </files>
+</package>

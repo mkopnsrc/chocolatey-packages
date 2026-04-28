@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+    <metadata>
+        <id>crossplane-cli</id>
+        <version>2.2.1</version>
+        <title>Crossplane CLI (crank)</title>
+        <authors>The Crossplane Authors</authors>
+        <owners>opnsrc.dev</owners>
+        <projectUrl>https://crossplane.io</projectUrl>
+        <iconUrl>https://rawcdn.githack.com/cncf/artwork/master/projects/crossplane/icon/color/crossplane-icon-color.svg</iconUrl>
+        <packageSourceUrl>https://github.com/mkopnsrc/chocolatey-packages/tree/master/automatic/crossplane-cli</packageSourceUrl>
+        <licenseUrl>https://github.com/crossplane/crossplane/blob/main/LICENSE</licenseUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <releaseNotes>https://github.com/crossplane/crossplane/releases</releaseNotes>
+        <docsUrl>https://docs.crossplane.io/latest/cli/</docsUrl>
+        <bugTrackerUrl>https://github.com/crossplane/crossplane/issues</bugTrackerUrl>
+        <language>en-US</language>
+        <tags>crossplane crank cli kubernetes k8s cncf infrastructure platform-engineering iac</tags>
+        <description>
+## Crossplane CLI (`crank`)
+
+The Crossplane command-line interface — `crank` — is the official CLI for [Crossplane](https://crossplane.io), a CNCF project that turns any Kubernetes cluster into a control plane for cloud and on-prem infrastructure.
+
+`crank` lets platform engineers build, test, package, and ship Crossplane Configurations and Functions:
+
+* **Build & push** Configurations and Functions as OCI artifacts (`crank xpkg build`, `crank xpkg push`).
+* **Render** Compositions locally for fast iteration (`crank render`).
+* **Test** Compositions with `crank test render` and `crank test e2e`.
+* **Beta features** for new Crossplane v2 capabilities accessible via `crank beta`.
+
+This package installs the `crank` binary into chocolatey's `tools` directory, where it's automatically added to `PATH` via chocolatey's shim.
+
+### Versioning
+
+Tracks the upstream `crossplane/crossplane` GitHub releases (stable channel, `releases.crossplane.io/stable/v&lt;version&gt;/bin/windows_amd64/crank.exe`). Each new release is auto-detected by the maintainer's CI.
+        </description>
+        <summary>The Crossplane CLI (`crank`) — official command-line tool for building, pushing, rendering, and testing Crossplane Configurations and Functions.</summary>
+    </metadata>
+    <files>
+        <file src="tools\**" target="tools" />
+    </files>
+</package>
