@@ -34,8 +34,11 @@ if ($alreadyInstalled -and ($env:ChocolateyForce -ne $true)) {
     } catch {
         if (Test-Path $msiLog) {
             Write-Host ''
-            Write-Host '===== MSI install log (last 200 lines) ====='
-            Get-Content $msiLog -Tail 200 | ForEach-Object { Write-Host $_ }
+            Write-Host '===== MSI log: lines containing FAILURE/ERROR/Return Value/CustomAction ====='
+            Select-String -Path $msiLog -Pattern '(?i)return value 3|action ended.*FAILURE|Internal Error|CustomAction.*returned|exception|did not succeed|launchcondition' |
+                ForEach-Object { Write-Host $_.Line }
+            Write-Host '===== last 500 lines of MSI log ====='
+            Get-Content $msiLog -Tail 500 | ForEach-Object { Write-Host $_ }
             Write-Host '===== end MSI log ====='
         } else {
             Write-Host "MSI log not found at $msiLog"
