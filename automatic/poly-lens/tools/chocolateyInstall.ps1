@@ -34,7 +34,7 @@ if ($alreadyInstalled -and ($env:ChocolateyForce -ne $true)) {
     # prerequisite on HP/Poly desktop apps; pre-install it so the chainer
     # doesn't trip on a missing dependency.
     Write-Host 'Pre-installing WebView2 Runtime (Poly Lens 2.x chainer dependency)...'
-    & choco install microsoft-edge-webview2-runtime --confirm --no-progress --limit-output 2>&1 | Out-Host
+    & choco install webview2-runtime --confirm --no-progress --limit-output 2>&1 | Out-Host
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "WebView2 pre-install returned $LASTEXITCODE (continuing anyway)"
     }
