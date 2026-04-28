@@ -66,40 +66,71 @@ jobs:
               continue
             }
 
-            $url = "https://community.chocolatey.org/api/v2/Packages?`$filter=Id eq '$pkg'&`$orderby=Version desc&`$top=50"
-            try {
-              $response = Invoke-WebRequest -Uri $url -UseBasicParsing -UserAgent 'mkopnsrc-backfill/1.0'
-            } catch {
-              Write-Host "::warning::$pkg : CCR query failed ($_); skipping"
-              continue
+            # CCR's OData feed returns inconsistent statuses across query paths
+            # during moderation: the direct-key endpoint may show Approved while
+            # the $filter endpoint still shows Submitted/Pending for the same
+            # Id+Version. We query BOTH and take the more conservative status —
+            # if either says Pending, we wait. This matches the user-facing
+            # behaviour where a package isn't fully published until both indices
+            # agree it is Approved.
+            function Get-CcrStatus($url) {
+              try {
+                $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -UserAgent 'mkopnsrc-backfill/1.0'
+                $m = [regex]::Match($resp.Content, '<d:PackageStatus[^>]*>([^<]+)</d:PackageStatus>')
+                if ($m.Success) { return $m.Groups[1].Value.Trim() }
+                if ($resp.Content -match '<entry>') { return 'Unknown' }
+                return $null
+              } catch {
+                if ($_.Exception.Response.StatusCode.value__ -eq 404 -or $_.Exception.Message -match '404') {
+                  return $null
+                }
+                throw
+              }
             }
 
-            [xml]$xml = $response.Content
-            $existing = @{}
-            foreach ($entry in $xml.feed.entry) {
-              $v = $entry.properties.Version
-              $s = $entry.properties.PackageStatus
-              if ($v) { $existing[[string]$v] = [string]$s }
+            $statuses = [ordered]@{}
+            foreach ($v in $targets) {
+              $directUrl = "https://community.chocolatey.org/api/v2/Packages(Id='$pkg',Version='$v')"
+              $filterUrl = "https://community.chocolatey.org/api/v2/Packages?`$filter=Id eq '$pkg' and Version eq '$v'"
+              try {
+                $direct = Get-CcrStatus $directUrl
+                $filter = Get-CcrStatus $filterUrl
+              } catch {
+                Write-Host "::warning::$pkg : CCR check for $v failed ($_); treating as unknown"
+                $statuses[$v] = 'Unknown'
+                continue
+              }
+              # Combine: most conservative wins
+              $statuses[$v] = if ($direct -eq $null -and $filter -eq $null) { $null }
+                              elseif ($direct -in @('Submitted','Pending') -or $filter -in @('Submitted','Pending')) { 'Pending' }
+                              elseif ($direct -eq 'Rejected' -or $filter -eq 'Rejected') { 'Rejected' }
+                              elseif ($direct -eq 'Approved' -and $filter -eq 'Approved') { 'Approved' }
+                              else { 'Unknown' }
             }
 
-            $statusSummary = if ($existing.Count -gt 0) {
-              ($existing.GetEnumerator() | Sort-Object Name -Descending | Select-Object -First 5 |
-                ForEach-Object { '{0}={1}' -f $_.Key, $_.Value }) -join ', '
-            } else { '(no versions on CCR)' }
+            $statusSummary = ($statuses.GetEnumerator() | ForEach-Object {
+              '{0}={1}' -f $_.Key, ($_.Value ?? 'NotPushed')
+            }) -join ', '
             Write-Host "$pkg : $statusSummary"
 
-            $blocking = $existing.GetEnumerator() | Where-Object { $_.Value -in @('Submitted', 'Pending') }
-            if ($blocking) {
-              Write-Host "::notice::$pkg : pending submission(s) — $($blocking.Key -join ', ') — skipping this cycle"
-              continue
-            }
-            $rejected = $existing.GetEnumerator() | Where-Object { $_.Value -eq 'Rejected' }
-            if ($rejected) {
-              Write-Host "::error::$pkg : REJECTED submission(s) — $($rejected.Key -join ', ') — manual intervention needed"
-              continue
+            # Find highest target already pushed (any non-null status).
+            $pushedTargets = $targets | Where-Object { $null -ne $statuses[$_] }
+            $highestPushed = if ($pushedTargets) { $pushedTargets | Select-Object -Last 1 } else { $null }
+
+            if ($highestPushed) {
+              $latestStatus = $statuses[$highestPushed]
+              if ($latestStatus -in @('Pending', 'Unknown')) {
+                Write-Host "::notice::$pkg : highest pushed version $highestPushed is $latestStatus — skipping this cycle"
+                continue
+              }
+              if ($latestStatus -eq 'Rejected') {
+                Write-Host "::error::$pkg : highest pushed version $highestPushed was Rejected — manual intervention needed"
+                continue
+              }
+              # Approved → fall through to find next missing
             }
 
-            $next = $targets | Where-Object { -not $existing.ContainsKey($_) } | Select-Object -First 1
+            $next = $targets | Where-Object { $null -eq $statuses[$_] } | Select-Object -First 1
             if ($next) {
               Write-Host "::notice::$pkg : queueing push for version $next"
               $plan += [pscustomobject]@{ package = $pkg; version = $next }
