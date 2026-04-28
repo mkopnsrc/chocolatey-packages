@@ -20,6 +20,41 @@
 
 Refinitiv Workspace is the financial analysis desktop and mobile solution, providing access to leading data and content, Reuters news, markets and liquidity pools.
 
+### Install behaviour
+
+By default the package installs the **core Refinitiv Workspace** only — the Excel addin and Chrome browser extension are skipped. Both can be opted-in via chocolatey package parameters:
+
+```
+choco install refinitiv-workspace --params "/include-excel /include-chrome-extension"
+```
+
+| Parameter | Effect |
+|---|---|
+| `/include-excel` | Installs the Refinitiv Excel addin (COM registration; adds startup time) |
+| `/include-chrome-extension` | Registers the Chrome native messaging host for in-browser charting |
+
+The installer auto-detects whether the target machine is physical hardware or a VM/VDI guest and selects `--mode=machine` or `--mode=vdi` accordingly.
+
+### Differences from the vendor's default install args
+
+The chocolatey package modifies the following from Refinitiv's interactive-installer defaults to make the install non-interactive and minimal-by-default. Run the installer directly from [LSEG's website](https://www.lseg.com/en/data-analytics/products/workspace/download-workspace) if you need the full vendor-default behaviour.
+
+| Arg | What it changes vs. vendor default |
+|---|---|
+| `--silent` | Suppresses the install UI (vendor default: interactive) |
+| `--forceInstall` | Installs even if a previous version is present (vendor default: prompt) |
+| `--lang=en` | Pins UI language to English (vendor default: detect from OS) |
+| `--no-update` | Skips the bootstrapper's first-run update check (vendor default: check for newer build before install) |
+| `--machine-autoupdate-no` | Disables the post-install auto-update service (vendor default: install the auto-updater) |
+| `--mode=machine` or `--mode=vdi` | Auto-selected from VM detection (vendor default: prompt for install type) |
+| `--shortcut-workspace=true` | Creates the Workspace desktop shortcut (matches vendor default) |
+| `--shortcut-excel=false` | Skips the Excel-launcher shortcut unless `/include-excel` is passed (vendor default: create) |
+| `--shortcut-messenger=false` | Skips the Messenger desktop shortcut (vendor default: create) |
+| `--no-excel` | **Default**: skip the Excel addin install (vendor default: install). Override with `--params "/include-excel"` |
+| `--no-chrome-extension` | **Default**: skip the Chrome native-messaging host (vendor default: install). Override with `--params "/include-chrome-extension"` |
+
+To re-enable Refinitiv's auto-updater after install, reinstall the application directly via the LSEG website or upgrade via chocolatey when a new package version is published.
+
 ### Note on the package id rename
 
 This package replaces the legacy [`refinitive-workspace`](https://community.chocolatey.org/packages/refinitive-workspace) id, which had a typo in the brand name. New installs should use `refinitiv-workspace`. Existing installs of `refinitive-workspace` will be migrated to this id automatically via dependency resolution.
