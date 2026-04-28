@@ -2,36 +2,44 @@
 $toolsDir = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
 . $toolsDir\helpers.ps1
 
+# MSI verbose log captured to a known path so install failures can be
+# diagnosed from the chocolatey log (and CI step output).
+$msiLog = Join-Path $env:TEMP 'poly-lens-msi.log'
+
 $packageArgs = @{
-	packageName     = $env:ChocolateyPackageName
-	softwareName    = 'Poly Lens'
-  	version         = $env:ChocolateyPackageVersion
-	unzipLocation   = $toolsDir
-	installerType   = 'msi'
-	url             = 'https://swupdate.lens.poly.com/lens-desktop-windows/1.3.1/1.3.1/PolyLens-1.3.1.msi'
-	#url64bit        = ''
-	checksum        = '7d0f781a48f00c6d215e51385660c80d9a94264ce3d541d48cc052795f8dcf20'
-	checksumType    = 'SHA256'
-	#checksum64      = ''
-	#checksumType64  = 'SHA256'
-	silentArgs      = '/qn /norestart'
-	#Exit codes for ms http://msdn.microsoft.com/en-us/library/aa368542(VS.85).aspx
-  validExitCodes = @(
-    0, # success
-    3010, # success, restart required
-    2147781575, # pending restart required
-    2147205120  # pending restart required for setup update
-  )
+    packageName    = $env:ChocolateyPackageName
+    softwareName   = 'Poly Lens*'
+    version        = $env:ChocolateyPackageVersion
+    unzipLocation  = $toolsDir
+    installerType  = 'msi'
+    url            = 'https://swupdate.lens.poly.com/lens-desktop-windows/1.3.1/1.3.1/PolyLens-1.3.1.msi'
+    checksum       = '7d0f781a48f00c6d215e51385660c80d9a94264ce3d541d48cc052795f8dcf20'
+    checksumType   = 'SHA256'
+    silentArgs     = "/qn /norestart /l*v `"$msiLog`""
+    validExitCodes = @(
+        0,           # success
+        3010,        # success, restart required
+        2147781575,  # pending restart required
+        2147205120   # pending restart required for setup update
+    )
 }
 
 $alreadyInstalled = (AlreadyInstalled -AppName $packageArgs['softwareName'] -AppVersion $packageArgs['version'])
 
 if ($alreadyInstalled -and ($env:ChocolateyForce -ne $true)) {
-  Write-Output $(
-    $packageArgs['softwareName']+" is already installed. " +
-    'if you want to re-install, use "--force" option to re-install.'
-  )
+    Write-Output ($packageArgs['softwareName'] + ' is already installed. Use --force to re-install.')
 } else {
-	Install-ChocolateyPackage @packageArgs
-
+    try {
+        Install-ChocolateyPackage @packageArgs
+    } catch {
+        if (Test-Path $msiLog) {
+            Write-Host ''
+            Write-Host '===== MSI install log (last 200 lines) ====='
+            Get-Content $msiLog -Tail 200 | ForEach-Object { Write-Host $_ }
+            Write-Host '===== end MSI log ====='
+        } else {
+            Write-Host "MSI log not found at $msiLog"
+        }
+        throw
+    }
 }
