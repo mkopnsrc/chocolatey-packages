@@ -151,3 +151,11 @@ jobs:
           name: ${{ inputs.package }}-${{ env.PACKAGE_VERSION }}-nupkg
           path: ${{ runner.temp }}/*.nupkg
           retention-days: 14
+
+      - name: Upload modified package files (consumed by backfill commit-pr)
+        if: ${{ inputs.publish && success() && env.PACKAGE_VERSION != '' }}
+        uses: actions/upload-artifact@v5
+        with:
+          name: pkgfiles-${{ inputs.package }}-${{ env.PACKAGE_VERSION }}
+          path: automatic/${{ inputs.package }}/
+          retention-days: 1
