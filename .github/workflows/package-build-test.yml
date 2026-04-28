@@ -31,6 +31,11 @@ on:
         type: string
         required: false
         default: ''
+      force:
+        description: 'Force re-publish: sets $global:au_Force=true so AU bumps the version to chocolatey fix notation (X.Y.Z.YYYYMMDD) and re-pushes. Use only when a previously-pushed version needs to be republished with corrected content.'
+        type: boolean
+        required: false
+        default: false
 
   workflow_call:
     inputs:
@@ -47,6 +52,10 @@ on:
         required: false
         type: string
         default: ''
+      force:
+        required: false
+        type: boolean
+        default: false
     secrets:
       CHOCO_API_KEY:
         required: false
@@ -61,6 +70,7 @@ jobs:
     env:
       PACKAGE: ${{ inputs.package }}
       FORCE_VERSION: ${{ inputs.force_version }}
+      AU_FORCE: ${{ inputs.force }}
 
     steps:
       - uses: actions/checkout@v5
@@ -71,6 +81,7 @@ jobs:
           if (-not (Test-Path $dir)) { throw "Package directory not found: $dir" }
           Write-Host "Building package from $dir"
           if ($env:FORCE_VERSION) { Write-Host "Forcing version: $env:FORCE_VERSION" }
+          if ($env:AU_FORCE -eq 'true') { Write-Host "Force-republish ENABLED — AU will use chocolatey fix notation (X.Y.Z.YYYYMMDD)" }
 
       - name: Install AU module to PSModulePath
         run: |
@@ -83,6 +94,10 @@ jobs:
           if ($env:FORCE_VERSION) {
             $global:au_Version = $env:FORCE_VERSION
             Write-Host "Forcing au_Version: $global:au_Version"
+          }
+          if ($env:AU_FORCE -eq 'true') {
+            $global:au_Force = $true
+            Write-Host "Forcing au_Force: \$true (will bump to fix notation if version already on CCR)"
           }
           ./update.ps1
 

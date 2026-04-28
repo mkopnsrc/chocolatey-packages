@@ -66,20 +66,38 @@ jobs:
               continue
             }
 
-            # CCR's OData feed returns inconsistent statuses across query paths
-            # during moderation: the direct-key endpoint may show Approved while
-            # the $filter endpoint still shows Submitted/Pending for the same
-            # Id+Version. We query BOTH and take the more conservative status —
-            # if either says Pending, we wait. This matches the user-facing
-            # behaviour where a package isn't fully published until both indices
-            # agree it is Approved.
-            function Get-CcrStatus($url) {
+            # CCR has multiple OData endpoints with INCONSISTENT data:
+            # - The direct-key endpoint Packages(Id=...,Version=...) returns
+            #   stale "Approved/IsApproved=true" data for packages that are
+            #   still in the moderation queue.
+            # - The $filter endpoint correctly reflects moderation state
+            #   (Submitted/IsApproved=false/Published=1900-01-01) for pending
+            #   versions, and (Approved/IsApproved=true/Published=<real date>)
+            #   for fully-published ones.
+            # The public package page at /packages/<id>/<version> agrees with
+            # the $filter endpoint, so we treat $filter as authoritative.
+            #
+            # A version is considered "fully approved and published" only when:
+            #   PackageStatus = Approved
+            #   AND IsApproved = true
+            #   AND Published date is not the 1900-01-01 placeholder
+            function Get-CcrApprovalState($pkg, $version) {
+              $url = "https://community.chocolatey.org/api/v2/Packages?`$filter=Id eq '$pkg' and Version eq '$version'"
               try {
                 $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -UserAgent 'mkopnsrc-backfill/1.0'
-                $m = [regex]::Match($resp.Content, '<d:PackageStatus[^>]*>([^<]+)</d:PackageStatus>')
-                if ($m.Success) { return $m.Groups[1].Value.Trim() }
-                if ($resp.Content -match '<entry>') { return 'Unknown' }
-                return $null
+                if ($resp.Content -notmatch '<entry>') { return $null }   # 404-equivalent: not on CCR
+
+                $statusMatch    = [regex]::Match($resp.Content, '<d:PackageStatus[^>]*>([^<]+)</d:PackageStatus>')
+                $approvedMatch  = [regex]::Match($resp.Content, '<d:IsApproved[^>]*>([^<]+)</d:IsApproved>')
+                $publishedMatch = [regex]::Match($resp.Content, '<d:Published[^>]*>([^<]+)</d:Published>')
+
+                $status      = if ($statusMatch.Success)    { $statusMatch.Groups[1].Value.Trim() }    else { 'Unknown' }
+                $isApproved  = $approvedMatch.Success -and $approvedMatch.Groups[1].Value.Trim() -eq 'true'
+                $isPublished = $publishedMatch.Success -and $publishedMatch.Groups[1].Value.Trim() -notmatch '^1900-'
+
+                if ($status -eq 'Rejected') { return 'Rejected' }
+                if ($status -eq 'Approved' -and $isApproved -and $isPublished) { return 'Approved' }
+                return 'Pending'
               } catch {
                 if ($_.Exception.Response.StatusCode.value__ -eq 404 -or $_.Exception.Message -match '404') {
                   return $null
@@ -90,22 +108,12 @@ jobs:
 
             $statuses = [ordered]@{}
             foreach ($v in $targets) {
-              $directUrl = "https://community.chocolatey.org/api/v2/Packages(Id='$pkg',Version='$v')"
-              $filterUrl = "https://community.chocolatey.org/api/v2/Packages?`$filter=Id eq '$pkg' and Version eq '$v'"
               try {
-                $direct = Get-CcrStatus $directUrl
-                $filter = Get-CcrStatus $filterUrl
+                $statuses[$v] = Get-CcrApprovalState $pkg $v
               } catch {
-                Write-Host "::warning::$pkg : CCR check for $v failed ($_); treating as unknown"
+                Write-Host "::warning::$pkg : CCR check for $v failed ($_); treating as Unknown"
                 $statuses[$v] = 'Unknown'
-                continue
               }
-              # Combine: most conservative wins
-              $statuses[$v] = if ($direct -eq $null -and $filter -eq $null) { $null }
-                              elseif ($direct -in @('Submitted','Pending') -or $filter -in @('Submitted','Pending')) { 'Pending' }
-                              elseif ($direct -eq 'Rejected' -or $filter -eq 'Rejected') { 'Rejected' }
-                              elseif ($direct -eq 'Approved' -and $filter -eq 'Approved') { 'Approved' }
-                              else { 'Unknown' }
             }
 
             $statusSummary = ($statuses.GetEnumerator() | ForEach-Object {
