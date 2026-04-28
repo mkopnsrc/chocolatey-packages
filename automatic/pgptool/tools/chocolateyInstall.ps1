@@ -8,8 +8,8 @@ $packageArgs = @{
   version         = $env:ChocolateyPackageVersion
 	unzipLocation   = $toolsDir
 	installerType   = 'msi'
-	url             = 'https://github.com/pgptool/pgptool/releases/download/0.5.9.3/pgptoolgui-0.5.9.3.msi'
-	checksum        = '365dc1bca626f6d45b34a49e2a1d1a5791a4c224fdfdc66d50370fda57fad0c7'
+	url             = 'https://github.com/pgptool/pgptool/releases/download/0.6.0.0/pgptoolgui-0.6.0.0.msi'
+	checksum        = '7f5e36136cfe1bb5db0ef95f1fc38b0ef6560d4c2891fb6387c1b16c25dbc0dd'
 	checksumType    = 'SHA256'
 	silentArgs      = "/qn /norestart"
 	#Exit codes for ms http://msdn.microsoft.com/en-us/library/aa368542(VS.85).aspx
