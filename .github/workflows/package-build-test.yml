@@ -36,6 +36,11 @@ on:
         type: boolean
         required: false
         default: false
+      skip_install_test:
+        description: 'Skip the local install / verify / uninstall steps. Use for packages whose installer takes longer than the workflow timeout (e.g. refinitiv-workspace). Pack and push still happen normally; chocolatey-side moderation will validate the install.'
+        type: boolean
+        required: false
+        default: false
 
   workflow_call:
     inputs:
@@ -53,6 +58,10 @@ on:
         type: string
         default: ''
       force:
+        required: false
+        type: boolean
+        default: false
+      skip_install_test:
         required: false
         type: boolean
         default: false
@@ -114,12 +123,14 @@ jobs:
           }
 
       - name: Install package from local source
+        if: ${{ !inputs.skip_install_test }}
         run: |
           choco install $env:PACKAGE `
             --source "$env:RUNNER_TEMP;https://community.chocolatey.org/api/v2/" `
             --confirm --no-progress
 
       - name: Verify install via chocolatey local list
+        if: ${{ !inputs.skip_install_test }}
         run: |
           # chocolatey's own list is the authoritative "did the package install"
           # check. Registry lookup by package id is unreliable — installers
@@ -134,6 +145,7 @@ jobs:
           Write-Host $listing
 
       - name: Uninstall
+        if: ${{ !inputs.skip_install_test }}
         run: choco uninstall $env:PACKAGE --confirm --no-progress
 
       - name: Push to chocolatey.org community feed
