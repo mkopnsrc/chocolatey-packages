@@ -119,17 +119,19 @@ jobs:
             --source "$env:RUNNER_TEMP;https://community.chocolatey.org/api/v2/" `
             --confirm --no-progress
 
-      - name: Verify install registered in Windows registry
+      - name: Verify install via chocolatey local list
         run: |
-          $found = Get-ItemProperty `
-            'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*', `
-            'HKLM:\Software\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*' `
-            -ErrorAction SilentlyContinue |
-            Where-Object { $_.DisplayName -match $env:PACKAGE }
-          if (-not $found) {
-            throw "$env:PACKAGE not found in registry after install"
+          # chocolatey's own list is the authoritative "did the package install"
+          # check. Registry lookup by package id is unreliable — installers
+          # often register a DisplayName that doesn't textually contain the
+          # chocolatey id (e.g. pgptool → "PGP Tool", poly-lens → "Poly Lens").
+          $listing = choco list $env:PACKAGE --exact 2>&1 | Out-String
+          if ($listing -notmatch "(?m)^$([regex]::Escape($env:PACKAGE))\s") {
+            Write-Host "choco list output:`n$listing"
+            throw "$env:PACKAGE not in chocolatey local list after install"
           }
-          $found | Select-Object DisplayName, DisplayVersion, Publisher | Format-Table
+          Write-Host "Confirmed installed via chocolatey:"
+          Write-Host $listing
 
       - name: Uninstall
         run: choco uninstall $env:PACKAGE --confirm --no-progress
