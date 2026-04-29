@@ -4,7 +4,7 @@ $githubRepo   = 'crossplane/crossplane'
 $ChecksumType = 'SHA256'
 
 function global:au_BeforeUpdate {
-    $Latest.Checksum32 = Get-RemoteChecksum $Latest.URL32 -Algorithm $Latest.ChecksumType32
+    $Latest.Checksum32 = Get-RemoteChecksum $Latest.URL32 -Algorithm $Latest.ChecksumType32 -Options $Latest.Options
 }
 
 function global:au_GetLatest {
@@ -23,6 +23,16 @@ function global:au_GetLatest {
         URL32          = $url
         Version        = $version
         ChecksumType32 = $ChecksumType
+        # releases.crossplane.io is fronted by a CDN that 403s the default
+        # PowerShell HttpWebRequest User-Agent on cloud-IP origins (the GH
+        # Actions Azure runners specifically). Pass a real-browser UA via
+        # $Latest.Options.Headers — used by both AU's URL check and
+        # Get-RemoteChecksum.
+        Options = @{
+            Headers = @{
+                'User-Agent' = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+        }
     }
 }
 
@@ -36,4 +46,4 @@ function global:au_SearchReplace {
     }
 }
 
-update -ChecksumFor none
+update -ChecksumFor none -NoCheckUrl
