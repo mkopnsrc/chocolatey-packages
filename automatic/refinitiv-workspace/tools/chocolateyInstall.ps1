@@ -3,49 +3,73 @@ $toolsDir = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
 . $toolsDir\helpers.ps1
 
 # ---------------------------------------------------------------------------
-# Detect physical machine vs virtual machine.
-# Refinitiv Workspace's installer accepts --mode=machine and --mode=vdi.
-# Auto-select based on detected hypervisor presence.
-# ---------------------------------------------------------------------------
-function Test-IsVirtualMachine {
-    try {
-        $cs = Get-CimInstance Win32_ComputerSystem -ErrorAction Stop
-    } catch {
-        return $false
-    }
-    # Common hypervisor / virtualization markers in Manufacturer or Model.
-    $vmPatterns = '(?i)VMware|VirtualBox|innotek|Xen|HVM domU|KVM|QEMU|Parallels|Citrix|Bochs'
-    if ($cs.Model -match $vmPatterns)        { return $true }
-    if ($cs.Manufacturer -match $vmPatterns) { return $true }
-    # Hyper-V / Azure: Microsoft Corporation + 'Virtual Machine' model
-    if ($cs.Manufacturer -eq 'Microsoft Corporation' -and $cs.Model -match 'Virtual Machine') {
-        return $true
-    }
-    return $false
-}
-
-$installMode = if (Test-IsVirtualMachine) { 'vdi' } else { 'machine' }
-Write-Host "Detected install mode: --mode=$installMode"
-
-# ---------------------------------------------------------------------------
-# User-supplied chocolatey package parameters.
+# Install mode selection
 #
-# By default Excel and Chrome integration are NOT installed (faster install,
-# fewer side effects). Users can opt-in via:
+# Default: --machine-autoupdate-no (system-wide install to %ProgramFiles%,
+# no Refinitiv auto-updater). This matches typical IT mass-deployment
+# expectations — chocolatey runs Install-ChocolateyPackage as Administrator
+# via Start-ChocolateyProcessAsAdmin, so a system-wide install is the
+# correct fit (a --user install would land in the admin's %LocalAppData%,
+# not the calling user's profile, which is wrong for chocolatey's model).
 #
-#   choco install refinitiv-workspace --params "/include-excel /include-chrome-extension"
+# Users can override via /install-mode=<mode>:
+#   user, user-no-update, machine, machine-autoupdate-no, machine-service
 #
-# Both kebab-case (include-excel) and PascalCase (IncludeExcel) accepted.
+# Valid modes verified via the installer's app.asar argv-key extraction.
+# (Note: VDI mode in the installer is triggered only by --isContinue, not
+# by VM auto-detection, so the System Test skip via --forceInstall works
+# in all default paths.)
 # ---------------------------------------------------------------------------
 $pp = Get-PackageParameters
-$includeExcel  = $pp.ContainsKey('include-excel')           -or $pp.ContainsKey('IncludeExcel')
+
+$installModeOverride = $null
+foreach ($k in 'install-mode','installmode','InstallMode') {
+    if ($pp.ContainsKey($k) -and $pp[$k]) { $installModeOverride = $pp[$k]; break }
+}
+
+$validInstallModes = @('user','user-no-update','machine','machine-autoupdate-no','machine-service')
+if ($installModeOverride -and $validInstallModes -notcontains $installModeOverride) {
+    throw "Invalid /install-mode='$installModeOverride'. Valid values: $($validInstallModes -join ', ')"
+}
+$installMode = if ($installModeOverride) { $installModeOverride } else { 'machine-autoupdate-no' }
+
+Write-Host "Install mode: --$installMode"
+
+# ---------------------------------------------------------------------------
+# Other user-supplied package parameters
+#
+#   /include-excel               — opt in to Refinitiv Excel addin
+#   /include-chrome-extension    — opt in to Chrome native messaging host
+#   /client-sso=<URL>            — pre-configure Single Sign-On endpoint
+#                                   (LSEG Installation Guide, Appendix C)
+#   /install-mode=<mode>         — override default install mode
+#
+# Parameter keys accept both kebab-case and PascalCase forms.
+# ---------------------------------------------------------------------------
+$includeExcel  = $pp.ContainsKey('include-excel')            -or $pp.ContainsKey('IncludeExcel')
 $includeChrome = $pp.ContainsKey('include-chrome-extension') -or $pp.ContainsKey('IncludeChromeExtension')
+
+$clientSsoUrl = $null
+foreach ($k in 'client-sso','clientsso','ClientSso','ClientSSO') {
+    if ($pp.ContainsKey($k) -and $pp[$k]) { $clientSsoUrl = $pp[$k]; break }
+}
 
 Write-Host ("Excel integration:  " + $(if ($includeExcel)  { 'ENABLED  (--params /include-excel)' }           else { 'disabled (default; pass /include-excel to enable)' }))
 Write-Host ("Chrome extension:   " + $(if ($includeChrome) { 'ENABLED  (--params /include-chrome-extension)' } else { 'disabled (default; pass /include-chrome-extension to enable)' }))
+Write-Host ("Client SSO URL:     " + $(if ($clientSsoUrl)  { "configured ($clientSsoUrl)" }                    else { 'not set (pass /client-sso=<URL> to configure)' }))
 
 # ---------------------------------------------------------------------------
 # Build silent-install args.
+#
+# Verified-valid argv keys from the installer's app.asar:
+#   silent, forceInstall, lang, user/machine/<install-mode>, excel,
+#   shortcuts, messengeronly, installerlogpath, machine-autoupdate-no,
+#   machine-service, user-no-update, machine-no-update
+#
+# Removed flags from previous package versions that are NOT recognized as
+# argv keys by the inner Electron arg parser (silently ignored):
+#   --mode=vdi, --no-update, --no-excel, --no-chrome-extension,
+#   --shortcut-workspace, --shortcut-excel, --shortcut-messenger
 # ---------------------------------------------------------------------------
 $UserTemp = $env:TEMP
 $LogPath  = Join-Path $UserTemp $env:ChocolateyPackageName
@@ -55,17 +79,14 @@ if (-not (Test-Path $LogPath)) {
 
 $silentArgList = @(
     '--silent',
-    '--forceInstall',
+    '--forceInstall',          # bypasses System Test on the regular install path
+    "--$installMode",          # explicit install-mode (default: machine-autoupdate-no)
     '--lang=en',
-    '--no-update',
-    '--machine-autoupdate-no',
-    "--mode=$installMode",
-    '--shortcut-workspace=true',
-    '--shortcut-messenger=false',
     "--installerlogpath=`"$LogPath`""
 )
-if (-not $includeExcel)  { $silentArgList += '--no-excel'; $silentArgList += '--shortcut-excel=false' } else { $silentArgList += '--shortcut-excel=true' }
-if (-not $includeChrome) { $silentArgList += '--no-chrome-extension' }
+if ($includeExcel)  { $silentArgList += '--excel' }
+if ($includeChrome) { $silentArgList += '--enable-chrome-extension' }
+if ($clientSsoUrl)  { $silentArgList += "--client-sso=`"$clientSsoUrl`"" }
 
 $silentArgs = $silentArgList -join ' '
 Write-Host "Silent args: $silentArgs"
