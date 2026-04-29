@@ -9,6 +9,7 @@
         <projectUrl>https://www.lseg.com/en/data-analytics/products/workspace/download-workspace</projectUrl>
         <iconUrl>https://rawcdn.githack.com/mkopnsrc/chocolatey-packages/f935397734fbcc4c99df70af7ec39e3fcf9115db/icons/refinitive.png</iconUrl>
         <packageSourceUrl>https://github.com/mkopnsrc/chocolatey-packages/tree/master/automatic/refinitiv-workspace</packageSourceUrl>
+        <licenseUrl>https://www.lseg.com/en/policies/website-disclaimer</licenseUrl>
         <requireLicenseAcceptance>false</requireLicenseAcceptance>
         <releaseNotes>https://www.lseg.com/en/data-analytics/products/workspace/download-workspace</releaseNotes>
         <language>en-US</language>
@@ -34,10 +35,10 @@ choco install refinitiv-workspace --params "/install-mode=machine-autoupdate-no 
 
 | Parameter | Effect |
 |---|---|
-| `/install-mode=<mode>` | Override the default user-mode install. Valid values: `user`, `user-no-update`, `machine`, `machine-autoupdate-no`, `machine-service`. See LSEG Installation Guide Appendix C. |
+| `/install-mode=&lt;mode&gt;` | Override the default user-mode install. Valid values: `user`, `user-no-update`, `machine`, `machine-autoupdate-no`, `machine-service`. See LSEG Installation Guide Appendix C. |
 | `/include-excel` | Pass `--excel` to install the Refinitiv Excel addin (COM registration; off by default to keep installs lean) |
 | `/include-chrome-extension` | Pass `--enable-chrome-extension` to register the Chrome native messaging host (off by default) |
-| `/client-sso=<URL>` | Pre-configure Single Sign-On for Workspace for Web (vendor flag `--client-sso`, [LSEG Installation Guide](https://www.lseg.com/content/dam/data-analytics/en_us/documents/support/workspace/installation.pdf) Appendix C) |
+| `/client-sso=&lt;URL&gt;` | Pre-configure Single Sign-On for Workspace for Web (vendor flag `--client-sso`, [LSEG Installation Guide](https://www.lseg.com/content/dam/data-analytics/en_us/documents/support/workspace/installation.pdf) Appendix C) |
 
 ### Differences from the vendor's interactive defaults
 
@@ -49,10 +50,10 @@ The chocolatey package passes the following arg set, which differs from running 
 | `--forceInstall` | Bypasses the System Test prerequisite probe and re-install prompts |
 | `--lang=en` | Pins UI language to English (vendor default: detect from OS) |
 | `--machine-autoupdate-no` (or `/install-mode=...`) | Selects an explicit install mode (system-wide, no auto-update by default). **The vendor's default is interactive prompt for install type.** |
-| `--installerlogpath=<path>` | Writes the installer log into `%TEMP%\refinitiv-workspace\` for diagnostics |
+| `--installerlogpath=&lt;path&gt;` | Writes the installer log into `%TEMP%\refinitiv-workspace\` for diagnostics |
 | `--excel` | **Optional**: only set when `/include-excel` is passed (vendor default: prompts/installs Excel addin) |
 | `--enable-chrome-extension` | **Optional**: only set when `/include-chrome-extension` is passed (vendor default: registers extension) |
-| `--client-sso=<URL>` | **Optional**: pre-configures Single Sign-On for Workspace for Web. Pass via `--params "/client-sso=<URL>"`. |
+| `--client-sso=&lt;URL&gt;` | **Optional**: pre-configures Single Sign-On for Workspace for Web. Pass via `--params "/client-sso=&lt;URL&gt;"`. |
 
 Auto-update behaviour follows the install mode: `user` and `machine-service` modes run a Workspace auto-updater (per-user task or Windows service); `user-no-update` and `machine-autoupdate-no` modes disable it. To change auto-update later, reinstall via the LSEG website or via chocolatey with a different `/install-mode`.
 

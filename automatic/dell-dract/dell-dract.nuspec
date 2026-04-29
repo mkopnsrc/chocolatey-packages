@@ -10,6 +10,7 @@
         <docsUrl>https://www.dell.com/support/manuals/en-us/dell-remote-access-config-tool-v1.2/dract_ug_pub-v2/introducing-dell-remote-access-configuration-tool</docsUrl>
         <iconUrl>https://rawcdn.githack.com/mkopnsrc/chocolatey-packages/7bf9b5623b6ca11176bbd2a676a9cf068975d503/icons/dell.png</iconUrl>
         <packageSourceUrl>https://github.com/mkopnsrc/chocolatey-packages/tree/master/automatic/dell-dract</packageSourceUrl>
+        <licenseUrl>https://www.dell.com/learn/us/en/uscorp1/terms-conditions</licenseUrl>
         <requireLicenseAcceptance>false</requireLicenseAcceptance>
         <releaseNotes>https://downloads.dell.com/FOLDER02551303M/1/DRACT_1_2_A00_ReleaseNotes.txt</releaseNotes>
         <language>en-US</language>
