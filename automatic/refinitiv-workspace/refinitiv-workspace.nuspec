@@ -22,16 +22,17 @@ Refinitiv Workspace is the financial analysis desktop and mobile solution, provi
 
 ### Install behaviour
 
-By default the package installs the **core Refinitiv Workspace** only — the Excel addin and Chrome browser extension are skipped. Both can be opted-in via chocolatey package parameters:
+By default the package installs the **core Refinitiv Workspace** only — the Excel addin and Chrome browser extension are skipped. They (and the optional SSO endpoint) can be enabled via chocolatey package parameters:
 
 ```
-choco install refinitiv-workspace --params "/include-excel /include-chrome-extension"
+choco install refinitiv-workspace --params "/include-excel /include-chrome-extension /client-sso=https://sso.example.com/auth"
 ```
 
 | Parameter | Effect |
 |---|---|
 | `/include-excel` | Installs the Refinitiv Excel addin (COM registration; adds startup time) |
 | `/include-chrome-extension` | Registers the Chrome native messaging host for in-browser charting |
+| `/client-sso=<URL>` | Pre-configures Single Sign-On for Workspace for Web (vendor flag `--client-sso`, documented in the [LSEG Workspace Desktop Installation Guide](https://www.lseg.com/content/dam/data-analytics/en_us/documents/support/workspace/installation.pdf)) |
 
 The installer auto-detects whether the target machine is physical hardware or a VM/VDI guest and selects `--mode=machine` or `--mode=vdi` accordingly.
 
@@ -52,6 +53,7 @@ The chocolatey package modifies the following from Refinitiv's interactive-insta
 | `--shortcut-messenger=false` | Skips the Messenger desktop shortcut (vendor default: create) |
 | `--no-excel` | **Default**: skip the Excel addin install (vendor default: install). Override with `--params "/include-excel"` |
 | `--no-chrome-extension` | **Default**: skip the Chrome native-messaging host (vendor default: install). Override with `--params "/include-chrome-extension"` |
+| `--client-sso=<URL>` | **Optional**: pre-configures Single Sign-On for Workspace for Web. Pass via `--params "/client-sso=<URL>"`. Vendor flag, documented in the LSEG installation guide. |
 
 To re-enable Refinitiv's auto-updater after install, reinstall the application directly via the LSEG website or upgrade via chocolatey when a new package version is published.
 

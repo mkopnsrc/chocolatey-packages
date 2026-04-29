@@ -35,14 +35,28 @@ Write-Host "Detected install mode: --mode=$installMode"
 #
 #   choco install refinitiv-workspace --params "/include-excel /include-chrome-extension"
 #
-# Both kebab-case (include-excel) and PascalCase (IncludeExcel) accepted.
+# A SSO endpoint URL can also be provided to pre-configure Single Sign-On for
+# Workspace for Web (vendor flag --client-sso, documented in the LSEG
+# Workspace Desktop Installation Guide):
+#
+#   choco install refinitiv-workspace --params "/client-sso=https://sso.example.com/auth"
+#
+# Parameter keys accept both kebab-case (include-excel, client-sso) and
+# PascalCase (IncludeExcel, ClientSso) forms.
 # ---------------------------------------------------------------------------
 $pp = Get-PackageParameters
 $includeExcel  = $pp.ContainsKey('include-excel')           -or $pp.ContainsKey('IncludeExcel')
 $includeChrome = $pp.ContainsKey('include-chrome-extension') -or $pp.ContainsKey('IncludeChromeExtension')
 
+# client-sso accepts a value: /client-sso=<URL>
+$clientSsoUrl = $null
+foreach ($k in 'client-sso','clientsso','ClientSso','ClientSSO') {
+    if ($pp.ContainsKey($k) -and $pp[$k]) { $clientSsoUrl = $pp[$k]; break }
+}
+
 Write-Host ("Excel integration:  " + $(if ($includeExcel)  { 'ENABLED  (--params /include-excel)' }           else { 'disabled (default; pass /include-excel to enable)' }))
 Write-Host ("Chrome extension:   " + $(if ($includeChrome) { 'ENABLED  (--params /include-chrome-extension)' } else { 'disabled (default; pass /include-chrome-extension to enable)' }))
+Write-Host ("Client SSO URL:     " + $(if ($clientSsoUrl)  { "configured ($clientSsoUrl)" }                    else { 'not set (pass /client-sso=<URL> to configure)' }))
 
 # ---------------------------------------------------------------------------
 # Build silent-install args.
@@ -66,6 +80,7 @@ $silentArgList = @(
 )
 if (-not $includeExcel)  { $silentArgList += '--no-excel'; $silentArgList += '--shortcut-excel=false' } else { $silentArgList += '--shortcut-excel=true' }
 if (-not $includeChrome) { $silentArgList += '--no-chrome-extension' }
+if ($clientSsoUrl)       { $silentArgList += "--client-sso=`"$clientSsoUrl`"" }
 
 $silentArgs = $silentArgList -join ' '
 Write-Host "Silent args: $silentArgs"
