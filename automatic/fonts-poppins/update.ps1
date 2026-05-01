@@ -1,51 +1,94 @@
 Import-Module au
 
-$releases = 'https://fonts.google.com/download?family=Poppins'
-$version_url = 'https://community.chocolatey.org/packages/fonts-poppins/'
-$ChecksumType = 'SHA256'
+# Source the 18 static .ttf files from the official Google Fonts repository at
+# a pinned commit SHA. itfoundry/Poppins (v4.003, 2019-03-05) is the upstream
+# foundry but is frozen, so google/fonts/ofl/poppins/ is the canonical mirror
+# that still receives metadata refreshes.
+$githubRepo  = 'google/fonts'
+$ghPath      = 'ofl/poppins'
+
+# Preserve the existing maintainer version lineage. Versions follow chocolatey
+# fix-notation: <baseVersion>.<YYYYMMDD-of-pinned-commit>.
+$baseVersion = '1.4.0'
+
+$fontFiles = @(
+    'Poppins-Black.ttf',         'Poppins-BlackItalic.ttf',
+    'Poppins-Bold.ttf',          'Poppins-BoldItalic.ttf',
+    'Poppins-ExtraBold.ttf',     'Poppins-ExtraBoldItalic.ttf',
+    'Poppins-ExtraLight.ttf',    'Poppins-ExtraLightItalic.ttf',
+    'Poppins-Italic.ttf',
+    'Poppins-Light.ttf',         'Poppins-LightItalic.ttf',
+    'Poppins-Medium.ttf',        'Poppins-MediumItalic.ttf',
+    'Poppins-Regular.ttf',
+    'Poppins-SemiBold.ttf',      'Poppins-SemiBoldItalic.ttf',
+    'Poppins-Thin.ttf',          'Poppins-ThinItalic.ttf'
+)
+
 function global:au_BeforeUpdate {
-    $Latest.Checksum32 = Get-RemoteChecksum $Latest.URL32 -Algorithm $Latest.ChecksumType32
-    #$Latest.Checksum64 = Get-RemoteChecksum $Latest.URL64 -Algorithm $Latest.ChecksumType64
+    $toolsDir = Join-Path $PSScriptRoot 'tools'
+    $fontsDir = Join-Path $toolsDir 'fonts'
 
-    #AU function Get-RemoteFiles can download files and save them in the package's tools directory. It does that by using the $Latest.URL32 and/or $Latest.URL64.
-    #Get-RemoteFiles -Purge
-}
-function global:au_GetLatest() { 
-    $url = $releases
-    #$ext = $url.Split('.') |Select-Object -Last 1
-    
-    $version_page = Invoke-WebRequest $version_url -UseBasicParsing
-    $version_list = (($version_page.links | Where-Object href -match '/packages.*\d+(?:\.\d)$').href |Select-String '\d+(?:\.\d+)+').Matches.Value
-    if ($version_list.GetType().IsArray) {
-      $cur_ver = [version]$version_list[0]
-      $new_ver = [version]::new($cur_ver.Major, $cur_ver.Minor + 1)
-    } else {
-      $cur_ver = [version]$version_list
-      $new_ver = [version]::new($cur_ver.Major, $cur_ver.Minor + 1)
+    if (Test-Path $fontsDir) { Remove-Item $fontsDir -Recurse -Force }
+    New-Item -ItemType Directory -Path $fontsDir -Force | Out-Null
+
+    $sha     = $Latest.CommitSha
+    $rawBase = "https://raw.githubusercontent.com/$githubRepo/$sha/$ghPath"
+
+    $verifyLines = @(
+        'VERIFICATION',
+        'Verification is intended to assist the Chocolatey moderators and community',
+        "in verifying that this package's contents are trustworthy.",
+        '',
+        'The font files in tools\fonts\ and the LICENSE.txt are sourced from the',
+        'official Google Fonts repository at the pinned commit shown below.',
+        '',
+        "Source repository: https://github.com/$githubRepo",
+        "Source path:       $ghPath",
+        "Pinned commit SHA: $sha",
+        "Commit date:       $($Latest.CommitDate)",
+        '',
+        'Upstream foundry:  https://github.com/itfoundry/Poppins (v4.003 frozen 2019-03-05)',
+        '',
+        'To re-verify each embedded file, fetch the upstream URL and compare:',
+        "  https://raw.githubusercontent.com/$githubRepo/$sha/$ghPath/<filename>",
+        'against the matching file under tools\fonts\.',
+        '',
+        'File checksums (SHA256):'
+    )
+
+    foreach ($f in $fontFiles) {
+        $dest = Join-Path $fontsDir $f
+        Invoke-WebRequest -Uri "$rawBase/$f" -OutFile $dest -UseBasicParsing
+        $hash = (Get-FileHash $dest -Algorithm SHA256).Hash
+        $verifyLines += ('  {0,-32}  {1}' -f $f, $hash)
     }
-    
-    $Latest = @{
-        InstallerType = $ext
-        URL32     = $url
-        #URL64     = $url64
-        Version   = $new_ver
-        ChecksumType32 = $ChecksumType
-        #ChecksumType64 = $ChecksumType
-    }
-    return $Latest
+
+    Invoke-WebRequest -Uri "$rawBase/OFL.txt" -OutFile (Join-Path $toolsDir 'LICENSE.txt') -UseBasicParsing
+
+    $verifyLines += ''
+    $verifyLines += 'License: SIL Open Font License v1.1 (see LICENSE.txt)'
+
+    Set-Content -Path (Join-Path $toolsDir 'VERIFICATION.txt') -Value $verifyLines -Encoding UTF8
 }
-function global:au_SearchReplace {
+
+function global:au_GetLatest {
+    $headers = @{ 'User-Agent' = 'AU-Chocolatey-Updater' }
+    if ($env:GITHUB_TOKEN) { $headers['Authorization'] = "Bearer $env:GITHUB_TOKEN" }
+
+    $api = "https://api.github.com/repos/$githubRepo/commits?path=$ghPath&per_page=1"
+    $commits = Invoke-RestMethod -Uri $api -Headers $headers -UseBasicParsing
+    $sha  = $commits[0].sha
+    $date = [DateTime]::Parse($commits[0].commit.author.date)
+
     @{
-      ".\tools\chocolateyInstall.ps1" = @{
-        #"(?i)(^\s*installerType\s*=\s*)('.*')" = "`$1'$($Latest.InstallerType)'"
-        "(?i)(^\s*url\s*=\s*)('.*')" = "`$1'$($Latest.URL32)'"
-        #"(?i)(^\s*url64bit\s*=\s*)('.*')" = "`$1'$($Latest.URL64)'"
-        "(?i)(^\s*checksum\s*=\s*)('.*')" = "`$1'$($Latest.Checksum32)'"
-        "(?i)(^\s*checksumType\s*=\s*)('.*')" = "`$1'$($Latest.ChecksumType32)'"
-        #"(?i)(^\s*checksum64\s*=\s*)('.*')" = "`$1'$($Latest.Checksum64)'"
-        #"(?i)(^\s*checksumType64\s*=\s*)('.*')" = "`$1'$($Latest.ChecksumType64)'"
-      };
-
+        Version    = "$baseVersion.$($date.ToString('yyyyMMdd'))"
+        CommitSha  = $sha
+        CommitDate = $date.ToString('yyyy-MM-dd')
     }
 }
-update -ChecksumFor none #-NoCheckChocoVersion
+
+function global:au_SearchReplace {
+    @{}
+}
+
+update -ChecksumFor none -NoCheckUrl

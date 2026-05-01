@@ -1,0 +1,10 @@
+# Files populated at build time by au_BeforeUpdate (see update.ps1).
+# CI runs `update.ps1` before `choco pack`, which downloads the 18 .ttf files
+# from a pinned google/fonts SHA into tools/fonts/, writes the SIL OFL license
+# to tools/LICENSE.txt, and emits tools/VERIFICATION.txt with SHA256 checksums.
+tools/fonts/
+tools/LICENSE.txt
+tools/VERIFICATION.txt
+
+# Built package artefact
+*.nupkg
