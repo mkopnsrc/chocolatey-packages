@@ -32,6 +32,9 @@ Font files are sourced from the official Google Fonts repository at [github.com/
 
 Licensed under the [SIL Open Font License v1.1](https://scripts.sil.org/OFL). The full license text is shipped under `tools\LICENSE.txt`.</description>
         <summary>Poppins is a geometric sans serif typeface with support for Devanagari and Latin writing systems, shipping 18 static fonts spanning Thin to Black weights in both upright and italic styles.</summary>
+        <dependencies>
+            <dependency id="chocolatey-font-helpers.extension" version="0.0.4" />
+        </dependencies>
     </metadata>
     <files>
         <file src="tools\**" target="tools" />
