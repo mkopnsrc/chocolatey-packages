@@ -1,0 +1,39 @@
+VERIFICATION
+Verification is intended to assist the Chocolatey moderators and community
+in verifying that this package's contents are trustworthy.
+
+The font files in tools\fonts\ and the LICENSE.txt are sourced from the
+official Google Fonts repository at the pinned commit shown below.
+
+Source repository: https://github.com/google/fonts
+Source path:       ofl/poppins
+Pinned commit SHA: 8b0a1d0f5983c89bc2b93f1b5fb55f9e252744b5
+Commit date:       2026-03-12
+
+Upstream foundry:  https://github.com/itfoundry/Poppins (release tag v4.003)
+
+To re-verify each embedded file, fetch the upstream URL and compare:
+  https://raw.githubusercontent.com/google/fonts/8b0a1d0f5983c89bc2b93f1b5fb55f9e252744b5/ofl/poppins/<filename>
+against the matching file under tools\fonts\.
+
+File checksums (SHA256):
+  Poppins-BlackItalic.ttf           F4852CA89C29F69D800E14F097ED4D1F0A0CC454E9F77D73BFD6DB1F71C287A0
+  Poppins-Black.ttf                 D82AAAF98A9283F9A8EDD24E51173337D8EAF09E25CD3D98831F8EC8461748A1
+  Poppins-BoldItalic.ttf            3572AC8116A0AC7317D342262B29937BCBAF94D8F03F90DF6FE666FA7E2FB43A
+  Poppins-Bold.ttf                  983676516167748B74DE6F4771FB384C664FD913ACB8B471122ECACF5DA5EA6C
+  Poppins-ExtraBoldItalic.ttf       DC00A2EB988373E9F4E99BF8FF76C6315EE21D36B341CBBFF024E4C18CC7AC03
+  Poppins-ExtraBold.ttf             F2AB17C1A63A0ECC12C2461848FC8A469395E3CD2D641803E889C643D9F958E1
+  Poppins-ExtraLightItalic.ttf      7171A17E4CDA8F6DED78A7A931F9B7F38987057F3FFD1FE07A71528AD0F01E49
+  Poppins-ExtraLight.ttf            55C03314CC754E26F741F97890E5E9CBE3B3278FE3ABCECFECAFD60111B2643D
+  Poppins-Italic.ttf                4FA76AE75B40F926420514044722CB97F32186CAFD3B38263CC34DAD7174D46D
+  Poppins-LightItalic.ttf           B8F9C5BE59723FADF8E5447FA1245C2C53B60A3464A24D6ECE9EE3C283D8917B
+  Poppins-Light.ttf                 650BA57FA99D12EC40C31CCFB680BE656BE4497FBE14164617D67E32FFE9CD46
+  Poppins-MediumItalic.ttf          765ADDF6C7C11EC3C54325CACD68CABD05DF8E4B6455302D812A9B9BAFD1C614
+  Poppins-Medium.ttf                90373E7D838D32468438FC3E152DCA0BDB12EDCAB99EA639F158790B1BA1FD05
+  Poppins-Regular.ttf               7E65201E9B79159E2300267CC885E16C8DCEF2424CDFA09A29BFB0980A94A7BA
+  Poppins-SemiBoldItalic.ttf        16BB118AA232C9A13FA238027D24D7854DD1A1D9CBAF99B17FEC4388D56B432C
+  Poppins-SemiBold.ttf              D3BF1BDAF0550E83DA9AC0B1D1D9FE6DB086835A83AA28578E609A394B9A0286
+  Poppins-ThinItalic.ttf            46DF80AC970F5E84829B868D283878B4D97E289C7B1245541D8BBF66B5D670A8
+  Poppins-Thin.ttf                  6D8E5D9D29140CC93E321745FA1243C67889E6BC3639EC34DB64F3DA7A496352
+
+License: SIL Open Font License v1.1 (see LICENSE.txt)

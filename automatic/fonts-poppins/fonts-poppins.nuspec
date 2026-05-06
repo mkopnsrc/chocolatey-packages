@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
     <metadata>
         <id>fonts-poppins</id>
-        <version>1.4.0.20260311</version>
+        <version>4.0.3</version>
         <title>Poppins Fonts</title>
         <authors>Indian Type Foundry, Jonny Pinhorn, Ninad Kale</authors>
         <owners>opnsrc.dev</owners>
@@ -24,13 +24,9 @@ Many of the Latin glyphs (such as the ampersand) are more constructed and ration
 
 The family ships 18 static font files spanning weights from Thin (100) to Black (900) in both upright and italic styles.
 
-### Source
+### Source &amp; versioning
 
-Font files are sourced from the official Google Fonts repository at [github.com/google/fonts/tree/main/ofl/poppins](https://github.com/google/fonts/tree/main/ofl/poppins) at a pinned commit SHA (recorded in `tools\VERIFICATION.txt` along with SHA256 checksums for every embedded `.ttf`). The upstream foundry, [itfoundry/Poppins](https://github.com/itfoundry/Poppins), released v4.003 in 2019 and the project is currently frozen at that version &#8212; google/fonts is the canonical mirror that still receives metadata refreshes.
-
-### Versioning
-
-This package uses chocolatey fix-notation: `1.4.0.YYYYMMDD` where the date segment matches the pinned google/fonts commit's authored date. Each new google/fonts commit on the `ofl/poppins/` path produces a new package version.
+Font files are sourced from the official Google Fonts repository at [github.com/google/fonts/tree/main/ofl/poppins](https://github.com/google/fonts/tree/main/ofl/poppins) at a pinned commit SHA (recorded in `tools\VERIFICATION.txt` along with SHA256 checksums for every embedded `.ttf`). The package version (e.g. `4.0.3`) tracks the upstream foundry's release tag at [itfoundry/Poppins](https://github.com/itfoundry/Poppins): `vN.MMM` is mapped to `N.M.PP` semver (e.g. upstream `v4.003` &#8594; package `4.0.3`).
 
 ### License
 

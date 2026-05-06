@@ -1,15 +1,13 @@
 Import-Module au
 
-# Source the 18 static .ttf files from the official Google Fonts repository at
-# a pinned commit SHA. itfoundry/Poppins (v4.003, 2019-03-05) is the upstream
-# foundry but is frozen, so google/fonts/ofl/poppins/ is the canonical mirror
-# that still receives metadata refreshes.
-$githubRepo  = 'google/fonts'
-$ghPath      = 'ofl/poppins'
+# Binary source: 18 static .ttf files from the official Google Fonts repository
+# at a pinned commit SHA. The upstream foundry itfoundry/Poppins is the version
+# source — google/fonts/ofl/poppins/ tracks itf and is the canonical CDN.
+$githubRepo = 'google/fonts'
+$ghPath     = 'ofl/poppins'
 
-# Preserve the existing maintainer version lineage. Versions follow chocolatey
-# fix-notation: <baseVersion>.<YYYYMMDD-of-pinned-commit>.
-$baseVersion = '1.4.0'
+# Version source: itfoundry/Poppins release tags (e.g. v4.003 -> 4.0.3).
+$itfRepo    = 'itfoundry/Poppins'
 
 $fontFiles = @(
     'Poppins-Black.ttf',         'Poppins-BlackItalic.ttf',
@@ -47,7 +45,7 @@ function global:au_BeforeUpdate {
         "Pinned commit SHA: $sha",
         "Commit date:       $($Latest.CommitDate)",
         '',
-        'Upstream foundry:  https://github.com/itfoundry/Poppins (v4.003 frozen 2019-03-05)',
+        "Upstream foundry:  https://github.com/$itfRepo (release tag $($Latest.UpstreamTag))",
         '',
         'To re-verify each embedded file, fetch the upstream URL and compare:',
         "  https://raw.githubusercontent.com/$githubRepo/$sha/$ghPath/<filename>",
@@ -75,13 +73,24 @@ function global:au_GetLatest {
     $headers = @{ 'User-Agent' = 'AU-Chocolatey-Updater' }
     if ($env:GITHUB_TOKEN) { $headers['Authorization'] = "Bearer $env:GITHUB_TOKEN" }
 
-    $api = "https://api.github.com/repos/$githubRepo/commits?path=$ghPath&per_page=1"
-    $commits = Invoke-RestMethod -Uri $api -Headers $headers -UseBasicParsing
-    $sha  = $commits[0].sha
-    $date = [DateTime]::Parse($commits[0].commit.author.date)
+    # 1) Latest release tag from itfoundry/Poppins. Tag format is vN.MMM
+    #    (e.g. v4.003, v3.200, v3.100). Map to N.M.PP semver: split MMM into
+    #    first-digit Minor + last-two Patch, strip leading zeros.
+    $rel = Invoke-RestMethod -Uri "https://api.github.com/repos/$itfRepo/releases/latest" -Headers $headers -UseBasicParsing
+    $tag = $rel.tag_name
+    if ($tag -notmatch '^v(\d+)\.(\d)(\d{2})$') {
+        throw "Unexpected itfoundry/Poppins tag format: '$tag' (want vN.MMM)"
+    }
+    $version = '{0}.{1}.{2}' -f [int]$Matches[1], [int]$Matches[2], [int]$Matches[3]
+
+    # 2) Pinned google/fonts commit SHA on ofl/poppins/ for the binary download.
+    $commits = Invoke-RestMethod -Uri "https://api.github.com/repos/$githubRepo/commits?path=$ghPath&per_page=1" -Headers $headers -UseBasicParsing
+    $sha     = $commits[0].sha
+    $date    = [DateTime]::Parse($commits[0].commit.author.date)
 
     @{
-        Version    = "$baseVersion.$($date.ToString('yyyyMMdd'))"
+        Version    = $version
+        UpstreamTag = $tag
         CommitSha  = $sha
         CommitDate = $date.ToString('yyyy-MM-dd')
     }
