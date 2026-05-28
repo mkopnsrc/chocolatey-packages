@@ -76,16 +76,17 @@ jobs:
             #
             # The public HTML detail page at /packages/<id>/<version> is
             # consistent across networks and clearly marks moderation state.
-            # Approved versions contain the literal text:
-            #     "This package was approved as"
-            # Pending versions never contain that text. Rejected versions
-            # contain "rejected by" near "package".
+            # CCR uses two distinct approval messages — both indicate Approved:
+            #   "This package was approved as a trusted package..." (auto, trusted maintainer)
+            #   "This package was approved by moderator <name>..."  (human review)
+            # Pending versions contain neither. Rejected versions contain
+            # "rejected by" near "moderator".
             function Get-CcrApprovalState($pkg, $version) {
               $url = "https://community.chocolatey.org/packages/$pkg/$version"
               try {
                 $resp = Invoke-WebRequest -Uri $url -UseBasicParsing -UserAgent 'mkopnsrc-backfill/1.0'
                 $html = $resp.Content
-                if ($html -match 'This package was approved as') { return 'Approved' }
+                if ($html -match 'This package was approved (as|by moderator)') { return 'Approved' }
                 if ($html -match 'rejected by .{0,40}moderator') { return 'Rejected' }
                 # Page exists, no approved/rejected marker → still in queue
                 return 'Pending'
