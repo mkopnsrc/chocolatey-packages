@@ -1,0 +1,23 @@
+# Auto-detect text files and normalize line endings to LF in the repo. AU
+# runs on a Windows runner and the backfill PR-back step copies its CRLF
+# output into the working tree; without this normalization, every PR-back
+# commit appears to rewrite every line of every touched file.
+*               text=auto eol=lf
+
+# Binary file types that should never be touched.
+*.png           binary
+*.jpg           binary
+*.jpeg          binary
+*.gif           binary
+*.ico           binary
+*.ttf           binary
+*.otf           binary
+*.woff          binary
+*.woff2         binary
+*.zip           binary
+*.7z            binary
+*.exe           binary
+*.dll           binary
+*.msi           binary
+*.nupkg         binary
+*.pdf           binary
