@@ -181,28 +181,59 @@ jobs:
 
       - name: Apply artifacts to working tree
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if (-not (Test-Path '/tmp/pkgfiles')) {
+          # Source of truth for which pkgfiles-* artifacts this run produced is
+          # the GitHub artifacts API — *not* the on-disk layout under
+          # /tmp/pkgfiles. actions/download-artifact@v5 flattens a single
+          # matching artifact's contents into `path:` directly (no
+          # pkgfiles-<pkg>-<version>/ subdir), but extracts each artifact into
+          # its own named subdir when 2+ artifacts match. Iterating
+          # directories under /tmp/pkgfiles cannot tell the two cases apart.
+          # See: actions/download-artifact v5 release notes (pattern behavior).
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; 'User-Agent' = 'mkopnsrc-backfill/1.0' }
+          $url = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID/artifacts?per_page=100"
+          $apiArtifacts = (Invoke-RestMethod -Uri $url -Headers $headers).artifacts |
+                          Where-Object { $_.name -like 'pkgfiles-*' }
+
+          if (-not $apiArtifacts) {
             Write-Host "No pkgfiles-* artifacts present — nothing to commit"
             "APPLIED_COUNT=0" >> $env:GITHUB_ENV
             return
           }
+
           $applied = @()
-          foreach ($dir in (Get-ChildItem '/tmp/pkgfiles' -Directory)) {
-            if ($dir.Name -match '^pkgfiles-(.+?)-([\d.]+)$') {
-              $pkg = $matches[1]
-              $version = $matches[2]
-              $dst = "automatic/$pkg"
-              if (-not (Test-Path $dst)) {
-                Write-Host "::warning::Destination $dst does not exist; skipping $($dir.Name)"
-                continue
-              }
-              Write-Host "Applying $($dir.Name) -> $dst"
-              Copy-Item -Recurse -Force "$($dir.FullName)/*" "$dst/"
-              $applied += "$pkg=$version"
-            } else {
-              Write-Host "::warning::Unexpected artifact name: $($dir.Name)"
+          foreach ($a in $apiArtifacts) {
+            if ($a.name -notmatch '^pkgfiles-(.+?)-([\d.]+)$') {
+              Write-Host "::warning::Unexpected artifact name: $($a.name)"
+              continue
             }
+            $pkg = $matches[1]
+            $version = $matches[2]
+            $dst = "automatic/$pkg"
+            if (-not (Test-Path $dst)) {
+              Write-Host "::warning::Destination $dst missing; skipping $($a.name)"
+              continue
+            }
+
+            # Resolve source: try the v4-style subdir first, fall back to v5's
+            # flat extraction when only one artifact matched the pattern.
+            $namedSubdir = Join-Path '/tmp/pkgfiles' $a.name
+            $src = if (Test-Path $namedSubdir) { $namedSubdir } elseif ($apiArtifacts.Count -eq 1) { '/tmp/pkgfiles' } else { $null }
+            if (-not $src) {
+              Write-Host "::warning::Could not locate downloaded contents for $($a.name); skipping"
+              continue
+            }
+
+            Write-Host "Applying $($a.name) -> $dst (from $src)"
+            # Exclude any .nupkg the build step may have left in the source —
+            # those are gitignored at repo level and shouldn't be re-applied.
+            Get-ChildItem -Path $src -Recurse -File -Filter '*.nupkg' | Remove-Item -Force -ErrorAction SilentlyContinue
+            Copy-Item -Recurse -Force "$src/*" "$dst/"
+            # Line-ending normalization on commit is handled by .gitattributes
+            # (eol=lf on text files) — no in-workflow normalization needed.
+            $applied += "$pkg=$version"
           }
           "APPLIED_COUNT=$($applied.Count)" >> $env:GITHUB_ENV
           "APPLIED_LIST=$($applied -join '|')" >> $env:GITHUB_ENV

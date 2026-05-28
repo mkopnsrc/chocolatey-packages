@@ -2,16 +2,16 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
     <metadata>
         <id>auditbeat-oss</id>
-        <version>8.14.1</version>
+        <version>9.3.0</version>
         <title>Auditbeat - OSS</title>
         <authors>ElasticSearch</authors>
         <owners>opnsrc.dev</owners>
         <projectUrl>https://www.elastic.co/downloads/beats/auditbeat-oss</projectUrl>
         <iconUrl>https://rawcdn.githack.com/mkopnsrc/chocolatey-packages/081b33ffc1bb251042f21277ba060fdea727dad7/icons/elastic-beats.png</iconUrl>
         <packageSourceUrl>https://github.com/mkopnsrc/chocolatey-packages/tree/master/automatic/auditbeat-oss</packageSourceUrl>
-        <licenseUrl>https://github.com/elastic/beats/tree/8.14/licenses/APACHE-LICENSE-2.0.txt</licenseUrl>
+        <licenseUrl>https://github.com/elastic/beats/tree/9.3/licenses/APACHE-LICENSE-2.0.txt</licenseUrl>
         <requireLicenseAcceptance>false</requireLicenseAcceptance>
-        <releaseNotes>https://www.elastic.co/guide/en/beats/libbeat/8.14/release-notes.html</releaseNotes>
+        <releaseNotes>https://www.elastic.co/guide/en/beats/libbeat/9.3/release-notes.html</releaseNotes>
         <language>en-US</language>
         <bugTrackerUrl>https://github.com/elastic/beats/issues</bugTrackerUrl>
         <tags>auditbeat auditbeat-oss beats elastic kibana audit fim file-integrity-monitoring open-source</tags>
