@@ -2,7 +2,7 @@
 <package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
     <metadata>
         <id>moderncsv</id>
-        <version>2.4.1</version>
+        <version>2.4.3</version>
         <title>Modern CSV</title>
         <authors>PFOJ ENTERPRISES LLC</authors>
         <owners>opnsrc.dev</owners>
