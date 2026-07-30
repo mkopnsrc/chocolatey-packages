@@ -1,0 +1,35 @@
+VERIFICATION
+Verification is intended to assist reviewers in confirming that this
+package's embedded binary is trustworthy.
+
+The MSI shipped inside this package's tools\ directory was downloaded at
+build time directly from the Fluent Bit project's official CDN:
+
+  Upstream MSI URL:
+    https://packages.fluentbit.io/windows/fluent-bit-5.0.8-win64.msi
+
+  Vendor:         Chronosphere Inc. (Author field of the MSI)
+  Vendor page:    https://docs.fluentbit.io/manual/installation/downloads/windows
+  Installer tech: Windows Installer XML (WiX) Toolset
+
+  SHA256 (win64 MSI, embedded at pack time):
+    f0649d52bd681d6a4ed4234a669a6d2b09ce1945ca8efcee59b1b807222374d8
+
+To reproduce the SHA256 locally:
+
+  PowerShell:
+    $u = 'https://packages.fluentbit.io/windows/fluent-bit-5.0.8-win64.msi'
+    $t = Join-Path $env:TEMP 'fluent-bit.msi'
+    Invoke-WebRequest -Uri $u -OutFile $t -UseBasicParsing
+    Get-FileHash $t -Algorithm SHA256
+
+  Linux/macOS:
+    curl -sLO 'https://packages.fluentbit.io/windows/fluent-bit-5.0.8-win64.msi'
+    sha256sum fluent-bit-5.0.8-win64.msi
+
+Note: the vendor does not publish an official .sha256 sidecar for the
+.msi variant (only for the .exe variant). The hash above was computed
+locally against the MSI as served by the CDN at package build time.
+
+License: Apache License 2.0 (see LICENSE.txt bundled in this package
+and the canonical text at https://github.com/fluent/fluent-bit/blob/master/LICENSE).
