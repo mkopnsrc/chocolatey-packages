@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 $toolsDir = "$(Split-Path -parent $MyInvocation.MyCommand.Definition)"
 . $toolsDir\helpers.ps1
 
@@ -8,11 +8,11 @@ $packageArgs = @{
     version         = $env:ChocolateyPackageVersion
     unzipLocation   = $toolsDir
     installerType   = 'msi'
-    url             = 'https://artifacts.elastic.co/downloads/beats/auditbeat/auditbeat-oss-9.3.0-windows-x86_64.msi'
-    url64bit        = 'https://artifacts.elastic.co/downloads/beats/auditbeat/auditbeat-oss-9.3.0-windows-x86_64.msi'
-    checksum        = '8df794b20eafbf3934496af39f51d23f983f637d6914e73c36540a6a1a6e93c5'
+    url             = 'https://artifacts.elastic.co/downloads/beats/auditbeat/auditbeat-oss-9.3.1-windows-x86_64.msi'
+    url64bit        = 'https://artifacts.elastic.co/downloads/beats/auditbeat/auditbeat-oss-9.3.1-windows-x86_64.msi'
+    checksum        = 'b97df66c2ccf603462195ba779838655928fdb4ef8c44e3c51f135fa539e2a5c'
     checksumType    = 'SHA256'
-    checksum64      = '8df794b20eafbf3934496af39f51d23f983f637d6914e73c36540a6a1a6e93c5'
+    checksum64      = 'b97df66c2ccf603462195ba779838655928fdb4ef8c44e3c51f135fa539e2a5c'
     checksumType64  = 'SHA256'
     silentArgs      = "/qn /norestart"
     #Exit codes for ms http://msdn.microsoft.com/en-us/library/aa368542(VS.85).aspx
