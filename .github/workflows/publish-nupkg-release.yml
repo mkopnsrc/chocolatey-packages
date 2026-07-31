@@ -116,43 +116,49 @@ jobs:
 
       - name: Create or update GitHub Release
         if: ${{ inputs.publish_release && success() }}
+        env:
+          REPO: ${{ github.repository }}
         run: |
           $nupkg = (Get-ChildItem $env:RUNNER_TEMP\*.nupkg | Select-Object -First 1).FullName
           $tag   = $env:RELEASE_TAG
           $title = "$env:PACKAGE $env:PACKAGE_VERSION"
-          $notes = @"
-Chocolatey package: **$env:PACKAGE $env:PACKAGE_VERSION**
 
-Distributed via this repository's GitHub Releases (not community.chocolatey.org). The vendor's Windows installer is embedded inside the ``.nupkg``.
-
-### Install
-
-Download ``$env:PACKAGE.$env:PACKAGE_VERSION.nupkg`` from this release, then:
-
-``````
-choco install $env:PACKAGE --source `"<folder-containing-nupkg>`" --version $env:PACKAGE_VERSION
-``````
-
-Or install directly from the release URL:
-
-``````
-choco install $env:PACKAGE `
-  --source `"https://github.com/${{ github.repository }}/releases/download/$tag/`"
-``````
-
-See ``tools/VERIFICATION.txt`` inside the .nupkg for the SHA256 of the embedded binary and reproduction steps.
-"@
+          # Build release notes as a file (avoids YAML block-scalar / here-string
+          # indent collisions).
+          $notesFile = Join-Path $env:RUNNER_TEMP 'release-notes.md'
+          $fence = '```'
+          $lines = @()
+          $lines += "Chocolatey package: **$($env:PACKAGE) $($env:PACKAGE_VERSION)**"
+          $lines += ""
+          $lines += "Distributed via this repository's GitHub Releases (not community.chocolatey.org). The vendor's Windows installer is embedded inside the .nupkg."
+          $lines += ""
+          $lines += "### Install"
+          $lines += ""
+          $lines += "Download ``$($env:PACKAGE).$($env:PACKAGE_VERSION).nupkg`` from this release, then:"
+          $lines += ""
+          $lines += $fence
+          $lines += "choco install $($env:PACKAGE) --source ""<folder-containing-nupkg>"" --version $($env:PACKAGE_VERSION)"
+          $lines += $fence
+          $lines += ""
+          $lines += "Or install directly from the release URL:"
+          $lines += ""
+          $lines += $fence
+          $lines += "choco install $($env:PACKAGE) --source ""https://github.com/$($env:REPO)/releases/download/$tag/"""
+          $lines += $fence
+          $lines += ""
+          $lines += "See ``tools/VERIFICATION.txt`` inside the .nupkg for the SHA256 of the embedded binary and reproduction steps."
+          $lines | Set-Content -Path $notesFile -Encoding UTF8
 
           # Idempotent: if the release exists, update its notes and upload the
           # .nupkg with --clobber; otherwise create it fresh.
-          $exists = gh release view $tag 2>$null
+          gh release view $tag 1>$null 2>$null
           if ($LASTEXITCODE -eq 0) {
             Write-Host "Release $tag already exists — updating notes + asset"
-            gh release edit $tag --title $title --notes $notes
+            gh release edit $tag --title $title --notes-file $notesFile
             gh release upload $tag $nupkg --clobber
           } else {
             Write-Host "Creating release $tag"
-            gh release create $tag $nupkg --title $title --notes $notes
+            gh release create $tag $nupkg --title $title --notes-file $notesFile
           }
 
       - name: Upload nupkg artifact
