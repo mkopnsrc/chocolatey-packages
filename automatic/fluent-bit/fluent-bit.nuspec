@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+    <metadata>
+        <id>fluent-bit</id>
+        <version>5.0.8</version>
+        <title>Fluent Bit</title>
+        <authors>Chronosphere Inc., Fluent Bit contributors</authors>
+        <owners>opnsrc.dev</owners>
+        <projectUrl>https://fluentbit.io/</projectUrl>
+        <docsUrl>https://docs.fluentbit.io/manual</docsUrl>
+        <iconUrl>https://raw.githubusercontent.com/mkopnsrc/chocolatey-packages/master/icons/fluent-bit.png</iconUrl>
+        <packageSourceUrl>https://github.com/mkopnsrc/chocolatey-packages/tree/master/automatic/fluent-bit</packageSourceUrl>
+        <projectSourceUrl>https://github.com/fluent/fluent-bit</projectSourceUrl>
+        <licenseUrl>https://github.com/fluent/fluent-bit/blob/master/LICENSE</licenseUrl>
+        <bugTrackerUrl>https://github.com/mkopnsrc/chocolatey-packages/issues</bugTrackerUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <copyright>Copyright Chronosphere Inc. and Fluent Bit contributors</copyright>
+        <language>en-US</language>
+        <tags>fluent-bit fluentbit fluentd log-forwarder telemetry observability logs metrics traces cncf admin</tags>
+        <summary>Fluent Bit is a fast and lightweight telemetry agent for logs, metrics, and traces (CNCF Graduated project).</summary>
+        <description>### Note
+
+This is a community-maintained Chocolatey package for [Fluent Bit](https://fluentbit.io/). The MSI installer is embedded inside the `.nupkg` at build time from the vendor's official CDN (`packages.fluentbit.io`) so installs work in air-gapped environments. See `tools\VERIFICATION.txt` for the SHA256 of the embedded MSI and the reproduction steps. This package is distributed via GitHub Releases (`mkopnsrc/chocolatey-packages`), not community.chocolatey.org.
+
+### Fluent Bit
+
+[Fluent Bit](https://fluentbit.io/) is an open-source telemetry agent for collecting, processing, and forwarding **logs**, **metrics**, and **traces**. It is a CNCF Graduated project and is the recommended lightweight log forwarder for cloud-native environments — deployed as a sidecar, DaemonSet, or standalone agent on Windows, Linux, macOS, and embedded platforms.
+
+Fluent Bit is written in C, has a low CPU/memory footprint, and ships hundreds of input, filter, and output plugins covering Kubernetes, Elasticsearch, OpenSearch, Loki, Kafka, Splunk, S3, Datadog, and many more.
+
+### Installer behaviour
+
+The vendor ships a WiX/MSI installer. This package invokes it silently:
+
+```
+msiexec /i fluent-bit-5.0.8-win64.msi /quiet /norestart
+```
+
+By default Fluent Bit installs to `C:\Program Files\fluent-bit\`. Configuration lives at `C:\Program Files\fluent-bit\conf\fluent-bit.conf`. To run as a Windows Service, follow the [service setup guide](https://docs.fluentbit.io/manual/installation/windows#install-as-a-service).
+
+### Package parameters
+
+Override the install location via `--params`:
+
+```
+choco install fluent-bit --params "/install-dir=D:\Apps\fluent-bit"
+```
+
+| Parameter | Effect |
+|---|---|
+| `/install-dir=&lt;path&gt;` | Override the MSI's default install location (passed as `INSTALLDIR=&lt;path&gt;` to msiexec). |
+
+### Uninstall
+
+`chocolateyUninstall.ps1` discovers the MSI product code from the registry and runs `msiexec /x` with `/quiet /norestart`.
+
+### Verification
+
+`tools\VERIFICATION.txt` records the upstream vendor URL, the SHA256 of the embedded MSI at package time, and reproduction steps. The MSI itself is authored by Chronosphere Inc. (`Author: Chronosphere Inc.` in the MSI properties) and built with the WiX Toolset.</description>
+    </metadata>
+    <files>
+        <file src="tools\**" target="tools" />
+    </files>
+</package>

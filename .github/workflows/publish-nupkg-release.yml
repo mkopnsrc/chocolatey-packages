@@ -1,0 +1,164 @@
+name: Publish nupkg to GitHub Releases
+
+# For packages that embed their binary and are distributed via GitHub Releases
+# (this repo's own release page) rather than community.chocolatey.org.
+#
+# The workflow: runs update.ps1 (which downloads the vendor binary and embeds
+# it under tools/), packs the .nupkg, optionally smoke-tests install/uninstall
+# on the runner, and — if publish_release is true — creates or updates a
+# GitHub Release tagged `<package>-v<version>` with the .nupkg attached.
+#
+# End users consume the resulting package with:
+#   choco install <package> -s https://github.com/mkopnsrc/chocolatey-packages/releases/download/<package>-v<version>/
+# or by downloading the .nupkg and running `choco install <package> -s .`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      package:
+        description: 'Package directory under automatic/ (e.g. fluent-bit)'
+        required: true
+        type: string
+        default: 'fluent-bit'
+      run_au:
+        description: 'Run update.ps1 first (downloads the vendor binary + refreshes version/SHA)'
+        type: boolean
+        required: true
+        default: true
+      publish_release:
+        description: 'Create/update a GitHub Release with the .nupkg attached'
+        type: boolean
+        required: true
+        default: false
+      force_version:
+        description: 'Force a specific version (sets $global:au_Version). Empty = latest from vendor.'
+        type: string
+        required: false
+        default: ''
+      skip_install_test:
+        description: 'Skip the local install / verify / uninstall smoke test on the runner.'
+        type: boolean
+        required: false
+        default: false
+
+jobs:
+  pack-and-release:
+    runs-on: windows-2022
+    timeout-minutes: 30
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      PACKAGE: ${{ inputs.package }}
+      FORCE_VERSION: ${{ inputs.force_version }}
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Validate package directory exists
+        run: |
+          $dir = "automatic/$env:PACKAGE"
+          if (-not (Test-Path $dir)) { throw "Package directory not found: $dir" }
+          Write-Host "Building package from $dir"
+          if ($env:FORCE_VERSION) { Write-Host "Forcing version: $env:FORCE_VERSION" }
+
+      - name: Install AU module to PSModulePath
+        run: |
+          & "$env:GITHUB_WORKSPACE\install.ps1" -module_path "$env:GITHUB_WORKSPACE\AU"
+
+      - name: Run AU update.ps1 (refresh embedded binary from vendor)
+        if: ${{ inputs.run_au }}
+        working-directory: automatic/${{ inputs.package }}
+        run: |
+          if ($env:FORCE_VERSION) {
+            $global:au_Version = $env:FORCE_VERSION
+            Write-Host "Forcing au_Version: $global:au_Version"
+          }
+          ./update.ps1
+
+      - name: Pack
+        working-directory: automatic/${{ inputs.package }}
+        run: |
+          [xml]$nuspec = Get-Content "$env:PACKAGE.nuspec"
+          $version = $nuspec.package.metadata.version
+          "PACKAGE_VERSION=$version" >> $env:GITHUB_ENV
+          "RELEASE_TAG=$env:PACKAGE-v$version" >> $env:GITHUB_ENV
+          Write-Host "Version: $version"
+          choco pack --out $env:RUNNER_TEMP
+          Get-ChildItem $env:RUNNER_TEMP\*.nupkg | ForEach-Object {
+            Write-Host "Built: $($_.Name) ($([math]::Round($_.Length/1MB,2)) MB)"
+          }
+
+      - name: Install package from local source
+        if: ${{ !inputs.skip_install_test }}
+        run: |
+          choco install $env:PACKAGE `
+            --source "$env:RUNNER_TEMP;https://community.chocolatey.org/api/v2/" `
+            --confirm --no-progress
+
+      - name: Verify install via chocolatey local list
+        if: ${{ !inputs.skip_install_test }}
+        run: |
+          $listing = choco list $env:PACKAGE --exact 2>&1 | Out-String
+          if ($listing -notmatch "(?m)^$([regex]::Escape($env:PACKAGE))\s") {
+            Write-Host "choco list output:`n$listing"
+            throw "$env:PACKAGE not in chocolatey local list after install"
+          }
+          Write-Host "Confirmed installed via chocolatey:"
+          Write-Host $listing
+
+      - name: Uninstall
+        if: ${{ !inputs.skip_install_test }}
+        run: choco uninstall $env:PACKAGE --confirm --no-progress
+
+      - name: Create or update GitHub Release
+        if: ${{ inputs.publish_release && success() }}
+        run: |
+          $nupkg = (Get-ChildItem $env:RUNNER_TEMP\*.nupkg | Select-Object -First 1).FullName
+          $tag   = $env:RELEASE_TAG
+          $title = "$env:PACKAGE $env:PACKAGE_VERSION"
+          $notes = @"
+Chocolatey package: **$env:PACKAGE $env:PACKAGE_VERSION**
+
+Distributed via this repository's GitHub Releases (not community.chocolatey.org). The vendor's Windows installer is embedded inside the ``.nupkg``.
+
+### Install
+
+Download ``$env:PACKAGE.$env:PACKAGE_VERSION.nupkg`` from this release, then:
+
+``````
+choco install $env:PACKAGE --source `"<folder-containing-nupkg>`" --version $env:PACKAGE_VERSION
+``````
+
+Or install directly from the release URL:
+
+``````
+choco install $env:PACKAGE `
+  --source `"https://github.com/${{ github.repository }}/releases/download/$tag/`"
+``````
+
+See ``tools/VERIFICATION.txt`` inside the .nupkg for the SHA256 of the embedded binary and reproduction steps.
+"@
+
+          # Idempotent: if the release exists, update its notes and upload the
+          # .nupkg with --clobber; otherwise create it fresh.
+          $exists = gh release view $tag 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Release $tag already exists — updating notes + asset"
+            gh release edit $tag --title $title --notes $notes
+            gh release upload $tag $nupkg --clobber
+          } else {
+            Write-Host "Creating release $tag"
+            gh release create $tag $nupkg --title $title --notes $notes
+          }
+
+      - name: Upload nupkg artifact
+        if: always() && env.PACKAGE_VERSION != ''
+        uses: actions/upload-artifact@v5
+        with:
+          name: ${{ inputs.package }}-${{ env.PACKAGE_VERSION }}-nupkg
+          path: ${{ runner.temp }}/*.nupkg
+          retention-days: 14
