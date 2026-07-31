@@ -85,7 +85,8 @@ jobs:
           [xml]$nuspec = Get-Content "$env:PACKAGE.nuspec"
           $version = $nuspec.package.metadata.version
           "PACKAGE_VERSION=$version" >> $env:GITHUB_ENV
-          "RELEASE_TAG=$env:PACKAGE-v$version" >> $env:GITHUB_ENV
+          "RELEASE_TAG=$env:PACKAGE/$version" >> $env:GITHUB_ENV
+          "LATEST_TAG=$env:PACKAGE/latest" >> $env:GITHUB_ENV
           Write-Host "Version: $version"
           choco pack --out $env:RUNNER_TEMP
           Get-ChildItem $env:RUNNER_TEMP\*.nupkg | ForEach-Object {
@@ -149,8 +150,8 @@ jobs:
           $lines += "See ``tools/VERIFICATION.txt`` inside the .nupkg for the SHA256 of the embedded binary and reproduction steps."
           $lines | Set-Content -Path $notesFile -Encoding UTF8
 
-          # Idempotent: if the release exists, update its notes and upload the
-          # .nupkg with --clobber; otherwise create it fresh.
+          # Idempotent: if the pinned-version release exists, update its notes
+          # and upload the .nupkg with --clobber; otherwise create it fresh.
           gh release view $tag 1>$null 2>$null
           if ($LASTEXITCODE -eq 0) {
             Write-Host "Release $tag already exists — updating notes + asset"
@@ -160,6 +161,36 @@ jobs:
             Write-Host "Creating release $tag"
             gh release create $tag $nupkg --title $title --notes-file $notesFile
           }
+
+          # Rolling `<package>/latest` release that always points at the newest
+          # version. Delete-and-recreate is the cleanest way to move both the
+          # release AND the underlying git tag onto the current commit.
+          $latestTag   = $env:LATEST_TAG
+          $latestTitle = "$($env:PACKAGE) (latest)"
+          $latestNotesFile = Join-Path $env:RUNNER_TEMP 'release-notes-latest.md'
+          $latestLines = @()
+          $latestLines += "Rolling tag — always points at the latest **$($env:PACKAGE)** release."
+          $latestLines += ""
+          $latestLines += "Current version: **$($env:PACKAGE_VERSION)** (see the pinned release [$($env:PACKAGE) $($env:PACKAGE_VERSION)](https://github.com/$($env:REPO)/releases/tag/$tag))."
+          $latestLines += ""
+          $latestLines += "### Install (always-latest)"
+          $latestLines += ""
+          $latestLines += $fence
+          $latestLines += "choco install $($env:PACKAGE) --source ""https://github.com/$($env:REPO)/releases/download/$latestTag/"""
+          $latestLines += $fence
+          $latestLines += ""
+          $latestLines += "Or pin to this exact version:"
+          $latestLines += ""
+          $latestLines += $fence
+          $latestLines += "choco install $($env:PACKAGE) --source ""https://github.com/$($env:REPO)/releases/download/$tag/"""
+          $latestLines += $fence
+          $latestLines += ""
+          $latestLines += "See ``tools/VERIFICATION.txt`` inside the .nupkg for the SHA256 of the embedded binary and reproduction steps."
+          $latestLines | Set-Content -Path $latestNotesFile -Encoding UTF8
+
+          Write-Host "Refreshing rolling release $latestTag -> $($env:PACKAGE_VERSION)"
+          gh release delete $latestTag --yes --cleanup-tag 2>$null
+          gh release create $latestTag $nupkg --title $latestTitle --notes-file $latestNotesFile
 
       - name: Upload nupkg artifact
         if: always() && env.PACKAGE_VERSION != ''
