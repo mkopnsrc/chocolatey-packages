@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+    <metadata>
+        <id>thinkorswim</id>
+        <version>1991.3.0</version>
+        <title>thinkorswim Desktop</title>
+        <authors>Charles Schwab &amp; Co., Inc.</authors>
+        <owners>opnsrc.dev</owners>
+        <projectUrl>https://www.schwab.com/trading/thinkorswim/desktop</projectUrl>
+        <docsUrl>https://toslc.thinkorswim.com/center/howToTos</docsUrl>
+        <iconUrl>https://raw.githubusercontent.com/mkopnsrc/chocolatey-packages/master/icons/thinkorswim.png</iconUrl>
+        <packageSourceUrl>https://github.com/mkopnsrc/chocolatey-packages/tree/master/automatic/thinkorswim</packageSourceUrl>
+        <licenseUrl>https://www.schwab.com/legal/schwab-thinkorswim-terms-and-conditions</licenseUrl>
+        <bugTrackerUrl>https://github.com/mkopnsrc/chocolatey-packages/issues</bugTrackerUrl>
+        <requireLicenseAcceptance>false</requireLicenseAcceptance>
+        <copyright>Copyright Charles Schwab &amp; Co., Inc.</copyright>
+        <language>en-US</language>
+        <tags>thinkorswim schwab tos trading desktop finance broker stock options futures forex admin</tags>
+        <summary>thinkorswim Desktop is the advanced trading platform from Charles Schwab for stocks, options, futures, and forex with charting, scanning, and analytical tools.</summary>
+        <description>### Note
+
+This Chocolatey package downloads the official thinkorswim Desktop installer from Charles Schwab's CDN and runs it in unattended/silent mode. The application itself is owned and copyrighted by Charles Schwab &amp; Co., Inc.; this package is community-maintained for automated deployment.
+
+### thinkorswim Desktop
+
+[thinkorswim](https://www.schwab.com/trading/thinkorswim/desktop) is the desktop trading platform from Charles Schwab (formerly TD Ameritrade) for traders who need advanced charting, customizable studies, real-time scanning, options analysis, and direct market access across equities, options, futures, and forex.
+
+A funded Schwab brokerage account is required to log in and trade. A paperMoney (virtual trading) account is available for practice without a funded account.
+
+### Installer behaviour
+
+The vendor's installer is built with [install4j](https://www.ej-technologies.com/products/install4j/overview.html) and supports unattended installation via standard install4j flags. This package runs:
+
+```
+thinkorswim_x64_installer.exe -q -overwrite
+```
+
+- `-q` &#8212; quiet mode, no UI shown
+- `-overwrite` &#8212; allow overwriting an existing install of the same version
+
+The installer's bundled JRE is extracted alongside the application; no separate Java install is required.
+
+### Package parameters
+
+Override install4j flags by passing additional arguments via `--params`:
+
+```
+choco install thinkorswim --params "/install-dir=C:\Apps\thinkorswim"
+```
+
+| Parameter | Effect |
+|---|---|
+| `/install-dir=&lt;path&gt;` | Override the installer's default install location (passed through as install4j's `-dir &lt;path&gt;`) |
+
+### Uninstall
+
+The package's `chocolateyUninstall.ps1` discovers the uninstaller via the registry `UninstallString` and runs it with install4j's `-q` flag.
+
+### Verification
+
+`tools\VERIFICATION.txt` records the upstream URL, the pinned SHA256 checksum of the installer at package time, and the steps to reproduce the checksum locally.</description>
+    </metadata>
+    <files>
+        <file src="tools\**" target="tools" />
+    </files>
+</package>
