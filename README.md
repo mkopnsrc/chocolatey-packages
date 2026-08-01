@@ -4,39 +4,64 @@
 
 A maintained set of [Chocolatey](https://chocolatey.org) packages for Windows, with automated version backfill driven by GitHub Actions and the bundled [AU](https://github.com/majkinetor/au) framework.
 
+## Distribution channels
+
+Packages ship through one of two channels depending on whether the vendor's terms and package fit CCR's model:
+
+- **[community.chocolatey.org (CCR)](https://community.chocolatey.org/profiles/opnsrc.dev)** — the default. Packages download from the vendor URL at install time. Anyone can `choco install <name>` with no extra source configuration.
+- **[This repo's GitHub Releases](https://github.com/mkopnsrc/chocolatey-packages/releases)** — for packages that embed the vendor binary inside the `.nupkg` (e.g. `fluent-bit`). Chocolatey's `--source` won't fetch a `.nupkg` from an arbitrary URL, so install is two steps: download, then install from the local folder. Each release has instructions in its notes.
+
 ## Install
 
-```powershell
-choco install <package-name>
-```
-
-To install a specific version:
+**From CCR** (most packages):
 
 ```powershell
-choco install <package-name> --version <X.Y.Z>
+choco install <package-name>                       # latest
+choco install <package-name> --version <X.Y.Z>     # pinned
 ```
+
+**From this repo's Releases** (embedded-binary packages like `fluent-bit`):
+
+```powershell
+Invoke-WebRequest 'https://github.com/mkopnsrc/chocolatey-packages/releases/download/fluent-bit/latest/fluent-bit.5.0.8.nupkg' `
+  -OutFile 'fluent-bit.nupkg'
+choco install fluent-bit --source '.'
+```
+
+Every embedded-binary package includes a `tools/VERIFICATION.txt` recording the vendor URL and SHA256 of the embedded installer.
 
 ## Packages
 
+### CCR (community.chocolatey.org)
+
 | Package | Description | Updater | Backfill |
 |---|---|---|---|
-| [`auditbeat-oss`](https://community.chocolatey.org/packages/auditbeat-oss) | Elastic Auditbeat — file integrity & system audit shipper | auto | yes |
+| [`atmos`](https://community.chocolatey.org/packages/atmos) | Cloud Posse Atmos — workflow orchestration for Terraform/Helm | auto (GitHub Releases) | — |
+| [`auditbeat-oss`](https://community.chocolatey.org/packages/auditbeat-oss) | Elastic Auditbeat — file integrity & system audit shipper | auto | **yes** |
+| [`crossplane-cli`](https://community.chocolatey.org/packages/crossplane-cli) | Crossplane CLI — Kubernetes control-plane tooling | auto (GitHub Releases) | — |
 | [`dell-dract`](https://community.chocolatey.org/packages/dell-dract) | Dell Remote Access Configuration Tool | manual | — |
-| [`filebeat-oss`](https://community.chocolatey.org/packages/filebeat-oss) | Elastic Filebeat — log shipper | auto | yes |
-| [`fonts-poppins`](https://community.chocolatey.org/packages/fonts-poppins) | Poppins font family | broken | — |
-| [`heartbeat-oss`](https://community.chocolatey.org/packages/heartbeat-oss) | Elastic Heartbeat — uptime probes | auto | yes |
+| [`filebeat-oss`](https://community.chocolatey.org/packages/filebeat-oss) | Elastic Filebeat — log shipper | auto | — |
+| [`fonts-poppins`](https://community.chocolatey.org/packages/fonts-poppins) | Poppins font family (SIL OFL) | auto (embedded fonts) | — |
+| [`heartbeat-oss`](https://community.chocolatey.org/packages/heartbeat-oss) | Elastic Heartbeat — uptime probes | auto | — |
 | [`meshcommander`](https://community.chocolatey.org/packages/meshcommander) | Intel AMT (vPro) remote management console | auto | — |
-| [`metricbeat-oss`](https://community.chocolatey.org/packages/metricbeat-oss) | Elastic Metricbeat — system & service metrics | auto | yes |
-| [`moderncsv`](https://community.chocolatey.org/packages/moderncsv) | ModernCSV — CSV editor and viewer | broken | — |
-| [`packetbeat-oss`](https://community.chocolatey.org/packages/packetbeat-oss) | Elastic Packetbeat — network packet shipper | auto | yes |
+| [`metricbeat-oss`](https://community.chocolatey.org/packages/metricbeat-oss) | Elastic Metricbeat — system & service metrics | auto | — |
+| [`moderncsv`](https://community.chocolatey.org/packages/moderncsv) | Modern CSV — editor and viewer | auto | — |
+| [`packetbeat-oss`](https://community.chocolatey.org/packages/packetbeat-oss) | Elastic Packetbeat — network packet shipper | auto | — |
 | [`pgptool`](https://community.chocolatey.org/packages/pgptool) | PGPTool — PGP/GPG GUI | auto | — |
-| [`poly-lens`](https://community.chocolatey.org/packages/poly-lens) | Poly Lens Desktop (formerly Plantronics) | auto | — |
-| [`refinitive-workspace`](https://community.chocolatey.org/packages/refinitive-workspace) | Refinitiv (LSEG) Workspace — financial data | auto | — |
-| [`winlogbeat-oss`](https://community.chocolatey.org/packages/winlogbeat-oss) | Elastic Winlogbeat — Windows event log shipper | auto | yes |
+| [`poly-lens`](https://community.chocolatey.org/packages/poly-lens) | Poly Lens Desktop (formerly Plantronics) | **blocked** (vendor rebrand to PolyStudio) | — |
+| [`refinitiv-workspace`](https://community.chocolatey.org/packages/refinitiv-workspace) | Refinitiv (LSEG) Workspace — financial data | auto | — |
+| [`thinkorswim`](https://community.chocolatey.org/packages/thinkorswim) | Charles Schwab thinkorswim Desktop — trading platform | auto | — |
+| [`winlogbeat-oss`](https://community.chocolatey.org/packages/winlogbeat-oss) | Elastic Winlogbeat — Windows event log shipper | auto | — |
 
-**Updater**: `auto` packages have a working `update.ps1` that scrapes the vendor and refreshes URL/checksum on dispatch. `manual` packages have static metadata. `broken` packages need the `update.ps1` rewritten — vendor source moved, see open work.
+### GitHub Releases (this repo)
 
-**Backfill**: packages with `backfill.json` walk a curated version list one entry per cron tick, gated on chocolatey.org moderation status.
+| Package | Description | Latest release |
+|---|---|---|
+| `fluent-bit` | Fluent Bit — CNCF Graduated telemetry agent for logs/metrics/traces (win64 MSI embedded) | [`fluent-bit/latest`](https://github.com/mkopnsrc/chocolatey-packages/releases/tag/fluent-bit%2Flatest) |
+
+**Updater**: `auto` packages have a working `update.ps1` that scrapes the vendor and refreshes URL/checksum on dispatch. `manual` packages have static metadata. `blocked` packages need a design decision (vendor rebrand, ownership dispute, etc.) — see the corresponding tracking issue.
+
+**Backfill**: packages with `backfill.json` walk a curated version list one entry per cron tick, gated on chocolatey.org moderation status. Beats packages had their backfill retired once they caught up to upstream (see `aa310d3`).
 
 ## Features
 
@@ -48,11 +73,11 @@ choco install <package-name> --version <X.Y.Z>
 
 ## Automation
 
-Two GitHub Actions workflows drive the publish loop:
+Three GitHub Actions workflows drive the publish loop:
 
-### `package-build-test.yml` — manual dispatch
+### `package-build-test.yml` — manual dispatch (CCR)
 
-Builds, install-tests, and (optionally) publishes a single package.
+Builds, install-tests, and (optionally) publishes a single package **to community.chocolatey.org**.
 
 ```bash
 gh workflow run package-build-test.yml \
@@ -69,12 +94,29 @@ Inputs:
 | `publish` | `false` | Push to chocolatey.org community feed after a successful test |
 | `force_version` | (empty) | Pin to a specific version (sets `$global:au_Version`) |
 | `force` | `false` | Re-publish via chocolatey fix notation (sets `$global:au_Force = $true`) |
+| `skip_install_test` | `false` | Skip on-runner install/verify/uninstall (for slow installers) |
 
-### `backfill.yml` — cron + manual
+### `publish-nupkg-release.yml` — manual dispatch (GitHub Releases)
 
-Cron `0 */6 * * *` walks each package up its `backfill.json` version list, advancing one version per cycle and waiting on chocolatey moderation between pushes. Inputs `dry_run` and `filter_package` for controlled manual runs.
+For **embedded-binary** packages distributed via this repo's Releases page instead of CCR. Runs `update.ps1` (which downloads the vendor binary into `tools/`), packs, install-tests on the runner, then creates two releases per version:
+
+- `<package>/<version>` — immutable, pinned per version
+- `<package>/latest` — rolling tag repointed at each new version
+
+```bash
+gh workflow run publish-nupkg-release.yml \
+  -f package=fluent-bit \
+  -f run_au=true \
+  -f publish_release=true
+```
+
+### `backfill.yml` — cron + manual (CCR)
+
+Cron `0 */6 * * *` walks each package's `backfill.json` version list, advancing one version per cycle and waiting on chocolatey moderation between pushes. Inputs `dry_run` and `filter_package` for controlled manual runs.
 
 The plan job parses the public package detail page at `https://community.chocolatey.org/packages/<id>/<version>` for moderation status — the OData feed returns inconsistent data across CDN edges and is not reliable.
+
+Currently only `auditbeat-oss` has an active `backfill.json`. The Beats packages had their backfill retired once they caught up to upstream.
 
 ## Repo layout
 
@@ -91,8 +133,9 @@ The plan job parses the public package detail page at `https://community.chocola
 │           └── helpers.ps1
 ├── AU/                              # bundled AU framework (frozen at upstream 2022.10.24)
 ├── .github/workflows/
-│   ├── package-build-test.yml
-│   └── backfill.yml
+│   ├── package-build-test.yml       # CCR publish
+│   ├── publish-nupkg-release.yml    # GitHub Releases publish (embedded-binary packages)
+│   └── backfill.yml                 # cron: walk backfill.json version lists
 ├── icons/                           # package icons referenced from nuspecs
 ├── chocolatey/                      # AU-as-a-chocolatey-package build (rarely used)
 └── CLAUDE.md                        # repo orientation for AI assistants
@@ -102,25 +145,32 @@ The plan job parses the public package detail page at `https://community.chocola
 
 1. **Create the package directory** under `automatic/<id>/`:
    - `<id>.nuspec` with metadata (id, version, description, license/release URLs, tags, icon)
-   - `update.ps1` defining `au_GetLatest` and `au_SearchReplace`. If targeting backfill, the `au_GetLatest` must honor `$global:au_Version`.
-   - `tools/chocolateyInstall.ps1` with the install logic
-   - `tools/helpers.ps1` (copy from a sibling package)
+   - `update.ps1` defining `au_GetLatest` and `au_SearchReplace`. If targeting backfill, `au_GetLatest` must honor `$global:au_Version`. For embedded-binary packages, put the download logic at top level (not inside `au_BeforeUpdate`) — AU short-circuits the hook when nuspec version matches remote.
+   - `tools/chocolateyInstall.ps1` with the install logic — **must include the `Get-UninstallRegistryKey` short-circuit** (see `CLAUDE.md` § chocolateyInstall.ps1 standards) except for font-only packages and metapackages.
+   - `tools/helpers.ps1` (copy from a sibling package) — only if you need bespoke helpers beyond Chocolatey's built-ins.
    - `tools/chocolateybeforemodify.ps1` if a service/process needs stopping during upgrade
 
-2. **(Optional) Add `backfill.json`** for multi-version backfill:
+2. **Pick a distribution channel**:
+   - **CCR**: use `package-build-test.yml`. Requires the vendor URL/checksum to be resolvable at install time.
+   - **GitHub Releases** (embedded binary): use `publish-nupkg-release.yml`. Ship this if the vendor's ToS discourages redistribution via a public feed or the install must work offline. Add no `backfill.json` — the cron ignores Releases-only packages.
+
+3. **(Optional, CCR only) Add `backfill.json`** for multi-version backfill:
    ```json
    { "versions": ["X.Y.Z", "X.Y.Z+1", "..."] }
    ```
    The cron will pick this up automatically — no workflow edits needed.
 
-3. **Test via manual dispatch** before merging to master:
+4. **Test via manual dispatch** before merging to master:
    ```bash
+   # CCR
    gh workflow run package-build-test.yml -f package=<id> -f publish=false
+   # GitHub Releases
+   gh workflow run publish-nupkg-release.yml -f package=<id> -f publish_release=false
    ```
 
-4. **Push to master** so the cron sees the new package on the next 6-hour tick.
+5. **Push to master** so the cron sees the new package on the next 6-hour tick (CCR path only).
 
-5. **First-time submissions** to chocolatey.org go through the full id-name moderation review (one-time gate). Subsequent version bumps clear faster.
+6. **First-time submissions** to chocolatey.org go through the full id-name moderation review (one-time gate). Subsequent version bumps clear faster.
 
 ## AU framework
 
