@@ -86,7 +86,6 @@ jobs:
           $version = $nuspec.package.metadata.version
           "PACKAGE_VERSION=$version" >> $env:GITHUB_ENV
           "RELEASE_TAG=$env:PACKAGE/$version" >> $env:GITHUB_ENV
-          "LATEST_TAG=$env:PACKAGE/latest" >> $env:GITHUB_ENV
           Write-Host "Version: $version"
           choco pack --out $env:RUNNER_TEMP
           Get-ChildItem $env:RUNNER_TEMP\*.nupkg | ForEach-Object {
@@ -165,36 +164,6 @@ jobs:
             Write-Host "Creating release $tag"
             gh release create $tag $nupkg --title $title --notes-file $notesFile
           }
-
-          # Rolling `<package>/latest` release that always points at the newest
-          # version. Delete-and-recreate is the cleanest way to move both the
-          # release AND the underlying git tag onto the current commit.
-          $latestTag   = $env:LATEST_TAG
-          $latestTitle = "$($env:PACKAGE) (latest)"
-          $latestNotesFile = Join-Path $env:RUNNER_TEMP 'release-notes-latest.md'
-          $latestNupkgUrl = "https://github.com/$($env:REPO)/releases/download/$latestTag/$($env:PACKAGE).$($env:PACKAGE_VERSION).nupkg"
-          $latestLines = @()
-          $latestLines += "Rolling tag — always points at the latest **$($env:PACKAGE)** release."
-          $latestLines += ""
-          $latestLines += "Current version: **$($env:PACKAGE_VERSION)** (see the pinned release [$($env:PACKAGE) $($env:PACKAGE_VERSION)](https://github.com/$($env:REPO)/releases/tag/$tag))."
-          $latestLines += ""
-          $latestLines += "### Install (always-latest, PowerShell)"
-          $latestLines += ""
-          $latestLines += "Chocolatey's ``--source`` only accepts NuGet OData feeds or filesystem paths — it does not fetch arbitrary ``.nupkg`` URLs directly. Download the ``.nupkg`` first, then install from the containing folder:"
-          $latestLines += ""
-          $latestLines += $fence + "powershell"
-          $latestLines += "Invoke-WebRequest '$latestNupkgUrl' -OutFile '$($env:PACKAGE).nupkg'"
-          $latestLines += "choco install $($env:PACKAGE) --source `".`""
-          $latestLines += $fence
-          $latestLines += ""
-          $latestLines += "The install script uses ``Get-UninstallRegistryKey`` to skip if the same product is already installed system-wide; pass ``--force`` to override."
-          $latestLines += ""
-          $latestLines += "See ``tools/VERIFICATION.txt`` inside the .nupkg for the SHA256 of the embedded binary and reproduction steps."
-          $latestLines | Set-Content -Path $latestNotesFile -Encoding UTF8
-
-          Write-Host "Refreshing rolling release $latestTag -> $($env:PACKAGE_VERSION)"
-          gh release delete $latestTag --yes --cleanup-tag 2>$null
-          gh release create $latestTag $nupkg --title $latestTitle --notes-file $latestNotesFile
 
       # ---------------------------------------------------------------------
       # Generate a static NuGet v3 feed with Sleet. The feed folder + a
