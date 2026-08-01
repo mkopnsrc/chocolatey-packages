@@ -196,6 +196,118 @@ jobs:
           gh release delete $latestTag --yes --cleanup-tag 2>$null
           gh release create $latestTag $nupkg --title $latestTitle --notes-file $latestNotesFile
 
+      # ---------------------------------------------------------------------
+      # Static NuGet v3 feed on the orphan `gh-pages` branch, served by
+      # GitHub Pages. See docs/nuget-feed-design.md for the "why".
+      # ---------------------------------------------------------------------
+      - name: Publish to static NuGet feed on gh-pages
+        if: ${{ inputs.publish_release && success() }}
+        env:
+          REPO: ${{ github.repository }}
+          FEED_BASE_URI: https://mkopnsrc.github.io/chocolatey-packages/nuget/
+          RETENTION_STABLE: '5'
+        run: |
+          $nupkg = (Get-ChildItem $env:RUNNER_TEMP\*.nupkg | Select-Object -First 1).FullName
+
+          # Install sleet as a global .NET tool. Windows-2022 has multiple
+          # .NET SDKs preinstalled; the latest LTS is fine for sleet.
+          dotnet tool install -g sleet
+          if ($LASTEXITCODE -ne 0) { throw "dotnet tool install sleet failed" }
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
+
+          # Clone the gh-pages branch into a sibling worktree. If it doesn't
+          # exist yet (first ever publish), create it as an orphan branch.
+          $feedRepo = Join-Path $env:RUNNER_TEMP 'feed-repo'
+          $repoUrl  = "https://x-access-token:$env:GH_TOKEN@github.com/$env:REPO.git"
+
+          $bootstrapped = $false
+          $remoteHead = git ls-remote --heads $repoUrl gh-pages
+          if ($LASTEXITCODE -ne 0) { throw "git ls-remote gh-pages failed" }
+          if ($remoteHead) {
+            Write-Host "gh-pages branch exists — cloning"
+            git clone --branch gh-pages --single-branch --depth 1 $repoUrl $feedRepo
+            if ($LASTEXITCODE -ne 0) { throw "git clone of gh-pages failed" }
+          } else {
+            Write-Host "gh-pages branch does not exist — bootstrapping as orphan"
+            New-Item -ItemType Directory -Path $feedRepo -Force | Out-Null
+            Push-Location $feedRepo
+            git init -b gh-pages
+            git remote add origin $repoUrl
+            Pop-Location
+            $bootstrapped = $true
+          }
+
+          Set-Location $feedRepo
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git config user.name  'github-actions[bot]'
+
+          # Build sleet.json inline (path is runner-specific, baseURI is fixed).
+          $feedPath = Join-Path $feedRepo 'nuget'
+          $sleetConfig = Join-Path $env:RUNNER_TEMP 'sleet.json'
+          $sleetJson = @{
+            username = ''
+            useremail = ''
+            sources = @(@{
+              name    = 'feed'
+              type    = 'local'
+              path    = $feedPath
+              baseURI = $env:FEED_BASE_URI
+            })
+          } | ConvertTo-Json -Depth 4
+          Set-Content -Path $sleetConfig -Value $sleetJson -Encoding UTF8
+
+          # If the feed dir has no sleet.settings.json, initialize a fresh feed.
+          $sleetSettings = Join-Path $feedPath 'sleet.settings.json'
+          if (-not (Test-Path $sleetSettings)) {
+            New-Item -ItemType Directory -Path $feedPath -Force | Out-Null
+            sleet init --config $sleetConfig
+            if ($LASTEXITCODE -ne 0) { throw "sleet init failed" }
+            sleet retention settings --stable $env:RETENTION_STABLE --config $sleetConfig
+            if ($LASTEXITCODE -ne 0) { throw "sleet retention settings failed" }
+          }
+
+          # Add the new .nupkg. --skip-existing makes re-dispatches idempotent.
+          sleet push $nupkg --config $sleetConfig --skip-existing
+          if ($LASTEXITCODE -ne 0) { throw "sleet push failed" }
+
+          # Enforce retention.
+          sleet retention prune --config $sleetConfig
+          if ($LASTEXITCODE -ne 0) { throw "sleet retention prune failed" }
+
+          # Landing page so someone visiting the repo's GH Pages URL sees
+          # something useful instead of a 404. (Built as an array of lines
+          # to keep every YAML row at the same block-scalar indent — HTML
+          # in a PowerShell here-string breaks out of `run: |` otherwise.)
+          $indexHtml = Join-Path $feedRepo 'index.html'
+          if (-not (Test-Path $indexHtml)) {
+            $html = @()
+            $html += '<!doctype html><meta charset="utf-8">'
+            $html += '<title>chocolatey-packages NuGet feed</title>'
+            $html += '<h1>chocolatey-packages NuGet feed</h1>'
+            $html += '<p>Static NuGet v3 feed for embedded-binary Chocolatey packages published from'
+            $html += '<a href="https://github.com/mkopnsrc/chocolatey-packages">mkopnsrc/chocolatey-packages</a>.</p>'
+            $html += '<pre>'
+            $html += 'choco source add -n mkopnsrc -s https://mkopnsrc.github.io/chocolatey-packages/nuget/index.json'
+            $html += 'choco install fluent-bit -s mkopnsrc'
+            $html += '</pre>'
+            $html += '<p>See the repo README for the full package list and the download-from-Releases alternative.</p>'
+            $html | Set-Content -Path $indexHtml -Encoding UTF8
+          }
+
+          # Commit + push. If bootstrapping, this is the first commit.
+          git add -A
+          if (git diff --cached --quiet) {
+            Write-Host "No feed changes to commit (probably a re-dispatch of the same version)."
+          } else {
+            $msg = "publish: $($env:PACKAGE) $($env:PACKAGE_VERSION)"
+            if ($bootstrapped) { $msg = "bootstrap: initial gh-pages feed + $msg" }
+            git commit -m $msg
+            if ($LASTEXITCODE -ne 0) { throw "git commit failed" }
+            git push origin gh-pages
+            if ($LASTEXITCODE -ne 0) { throw "git push gh-pages failed" }
+            Write-Host "Feed updated: $env:FEED_BASE_URI"
+          }
+
       - name: Upload nupkg artifact
         if: always() && env.PACKAGE_VERSION != ''
         uses: actions/upload-artifact@v5
