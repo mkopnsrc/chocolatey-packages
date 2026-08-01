@@ -1,4 +1,8 @@
-# Static NuGet v3 feed on GitHub Pages — design
+# Static NuGet v3 feed on GitHub Pages — design (WITHDRAWN)
+
+> **Status: withdrawn on 2026-08-01.** The plan below shipped as PRs #54 → #59 and produced a working Sleet-generated v3 feed at `https://mkopnsrc.github.io/chocolatey-packages/nuget/`, but the real-world target machines run **choco 0.10.15** (2019), which predates NuGet v3 client support (added in choco 2.0, 2023). Since upgrading the fleet isn't practical and adding a v2/OData feed adds significant hosted-infrastructure (Sleet is v3-only; a v2 server needs a running process like BaGetter, which doesn't fit GitHub Pages), we reverted to Releases-download-only distribution. Design retained for future reference in case the choco-version constraint changes.
+>
+> Reverted-by workflow change: removed the Sleet + `actions/deploy-pages` steps from `publish-nupkg-release.yml`. The `gh-pages` branch was already retired earlier in the same sequence.
 
 ## Goal
 

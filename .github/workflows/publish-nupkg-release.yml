@@ -165,83 +165,27 @@ jobs:
             gh release create $tag $nupkg --title $title --notes-file $notesFile
           }
 
-      # ---------------------------------------------------------------------
-      # Generate a static NuGet v3 feed with Sleet. The feed folder + a
-      # small landing page get uploaded as a GitHub Pages artifact; the
-      # deploy-pages job (below) publishes it. See docs/nuget-feed-design.md.
-      #
-      # Design note: each publish rebuilds the feed FROM SCRATCH containing
-      # only the current version. Users needing older versions install
-      # via the pinned GitHub Release URLs (fluent-bit/<X.Y.Z>). This is a
-      # simpler-and-always-consistent trade-off vs preserving feed state
-      # across runs.
-      # ---------------------------------------------------------------------
-      - name: Generate Sleet feed into Pages-artifact folder
-        id: sleet
-        if: ${{ inputs.publish_release && success() }}
-        env:
-          FEED_BASE_URI: https://mkopnsrc.github.io/chocolatey-packages/nuget/
-          RETENTION_STABLE: '5'
-          # sleet rejects --prerelease 0 with "must specify a maximum number
-          # of prerelease versions that is > 0"; embedded-binary packages here
-          # don't ship prereleases so 1 is a functional no-op.
-          RETENTION_PRERELEASE: '1'
-        run: |
-          $nupkg = (Get-ChildItem $env:RUNNER_TEMP\*.nupkg | Select-Object -First 1).FullName
-
-          dotnet tool install -g sleet
-          if ($LASTEXITCODE -ne 0) { throw "dotnet tool install sleet failed" }
-          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
-
-          # Pages artifact layout: the whole content of $siteDir becomes the
-          # root of the deployed site.
-          $siteDir  = Join-Path $env:RUNNER_TEMP 'pages-site'
-          $feedPath = Join-Path $siteDir 'nuget'
-          New-Item -ItemType Directory -Path $feedPath -Force | Out-Null
-
-          $sleetConfig = Join-Path $env:RUNNER_TEMP 'sleet.json'
-          $sleetJson = @{
-            username = ''
-            useremail = ''
-            sources = @(@{
-              name    = 'feed'
-              type    = 'local'
-              path    = $feedPath
-              baseURI = $env:FEED_BASE_URI
-            })
-          } | ConvertTo-Json -Depth 4
-          Set-Content -Path $sleetConfig -Value $sleetJson -Encoding UTF8
-
-          sleet init --config $sleetConfig
-          if ($LASTEXITCODE -ne 0) { throw "sleet init failed" }
-          sleet push $nupkg --config $sleetConfig
-          if ($LASTEXITCODE -ne 0) { throw "sleet push failed" }
-          sleet retention prune --stable $env:RETENTION_STABLE --prerelease $env:RETENTION_PRERELEASE --config $sleetConfig
-          if ($LASTEXITCODE -ne 0) { throw "sleet retention prune failed" }
-
-          # Landing page. Built as array of lines so each YAML row keeps a
-          # consistent block-scalar indent — a here-string here would break out.
-          $html = @()
-          $html += '<!doctype html><meta charset="utf-8">'
-          $html += '<title>chocolatey-packages NuGet feed</title>'
-          $html += '<h1>chocolatey-packages NuGet feed</h1>'
-          $html += '<p>Static NuGet v3 feed for embedded-binary Chocolatey packages published from'
-          $html += '<a href="https://github.com/mkopnsrc/chocolatey-packages">mkopnsrc/chocolatey-packages</a>.</p>'
-          $html += '<pre>'
-          $html += 'choco source add -n mkopnsrc -s https://mkopnsrc.github.io/chocolatey-packages/nuget/index.json'
-          $html += 'choco install fluent-bit -s mkopnsrc'
-          $html += '</pre>'
-          $html += '<p>See the repo README for the full package list and the download-from-Releases alternative.</p>'
-          $html | Set-Content -Path (Join-Path $siteDir 'index.html') -Encoding UTF8
-
-          Write-Host "Feed generated at $siteDir"
-          "site_dir=$siteDir" >> $env:GITHUB_OUTPUT
-
-      - name: Upload Pages artifact
-        if: ${{ inputs.publish_release && success() }}
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: ${{ steps.sleet.outputs.site_dir }}
+          # Retention: keep only the 5 most recent releases matching
+          # `<package>/<version>`. Prunes 6th-onwards (by created_at) so
+          # embedded-binary asset storage stays bounded. Standing rule per
+          # memory: max 5 versions per package across every distribution channel.
+          $matchingReleases = gh release list --limit 100 --json tagName,createdAt |
+            ConvertFrom-Json |
+            Where-Object { $_.tagName -like "$($env:PACKAGE)/*" } |
+            Sort-Object -Property createdAt -Descending
+          $toPrune = $matchingReleases | Select-Object -Skip 5
+          if ($toPrune) {
+            Write-Host "Pruning $($toPrune.Count) old release(s):"
+            foreach ($rel in $toPrune) {
+              Write-Host "  - $($rel.tagName)"
+              gh release delete $rel.tagName --yes --cleanup-tag
+              if ($LASTEXITCODE -ne 0) {
+                Write-Warning "Failed to delete $($rel.tagName); leaving in place."
+              }
+            }
+          } else {
+            Write-Host "Retention: $($matchingReleases.Count) release(s) present, all within cap of 5."
+          }
 
       - name: Upload nupkg artifact
         if: always() && env.PACKAGE_VERSION != ''
@@ -250,22 +194,3 @@ jobs:
           name: ${{ inputs.package }}-${{ env.PACKAGE_VERSION }}-nupkg
           path: ${{ runner.temp }}/*.nupkg
           retention-days: 14
-
-  # Second job deploys the Pages artifact uploaded by pack-and-release.
-  # Split from the first job because actions/deploy-pages@v4 needs a specific
-  # environment + permission set and can't share the pack-and-release job's
-  # windows-2022 runner (deploy is a linux-only action).
-  deploy-pages:
-    if: ${{ inputs.publish_release }}
-    needs: pack-and-release
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deploy
-        uses: actions/deploy-pages@v4
