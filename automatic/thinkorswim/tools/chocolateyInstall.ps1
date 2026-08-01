@@ -1,6 +1,16 @@
 $ErrorActionPreference = 'Stop'
 $toolsDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 
+# Skip if the same product is already installed system-wide, unless the user
+# explicitly passed --force. Chocolatey sets $env:ChocolateyForce='true' when
+# --force is on the CLI.
+$existing = Get-UninstallRegistryKey -SoftwareName 'thinkorswim*'
+if ($existing -and ($env:ChocolateyForce -ne 'true')) {
+    $displayVersion = ($existing | Select-Object -First 1).DisplayVersion
+    Write-Host "thinkorswim $displayVersion is already installed (registry). Pass --force to re-install."
+    return
+}
+
 # Build the install4j silent argument string. Defaults to '-q -overwrite';
 # users can override the install directory via --params "/install-dir=<path>".
 $silentArgs = '-q -overwrite'
