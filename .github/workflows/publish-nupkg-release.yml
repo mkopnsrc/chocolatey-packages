@@ -206,7 +206,10 @@ jobs:
           REPO: ${{ github.repository }}
           FEED_BASE_URI: https://mkopnsrc.github.io/chocolatey-packages/nuget/
           RETENTION_STABLE: '5'
-          RETENTION_PRERELEASE: '0'
+          # sleet rejects --prerelease 0 with "must specify a maximum number
+          # of prerelease versions that is > 0"; embedded-binary packages here
+          # don't ship prereleases so 1 is a functional no-op.
+          RETENTION_PRERELEASE: '1'
         run: |
           $nupkg = (Get-ChildItem $env:RUNNER_TEMP\*.nupkg | Select-Object -First 1).FullName
 
