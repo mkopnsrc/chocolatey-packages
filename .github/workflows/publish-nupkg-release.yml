@@ -263,18 +263,16 @@ jobs:
             New-Item -ItemType Directory -Path $feedPath -Force | Out-Null
             sleet init --config $sleetConfig
             if ($LASTEXITCODE -ne 0) { throw "sleet init failed" }
-            # sleet requires BOTH --stable AND --prerelease even if the intent
-            # is stable-only (0 prerelease = drop all prerelease versions).
-            sleet retention settings --stable $env:RETENTION_STABLE --prerelease $env:RETENTION_PRERELEASE --config $sleetConfig
-            if ($LASTEXITCODE -ne 0) { throw "sleet retention settings failed" }
           }
 
           # Add the new .nupkg. --skip-existing makes re-dispatches idempotent.
           sleet push $nupkg --config $sleetConfig --skip-existing
           if ($LASTEXITCODE -ne 0) { throw "sleet push failed" }
 
-          # Enforce retention.
-          sleet retention prune --config $sleetConfig
+          # Enforce retention inline instead of via `sleet retention settings`,
+          # which was failing with a swallowed error on init runs. The docs
+          # explicitly support passing --stable/--prerelease directly to prune.
+          sleet retention prune --stable $env:RETENTION_STABLE --prerelease $env:RETENTION_PRERELEASE --config $sleetConfig
           if ($LASTEXITCODE -ne 0) { throw "sleet retention prune failed" }
 
           # Landing page so someone visiting the repo's GH Pages URL sees
