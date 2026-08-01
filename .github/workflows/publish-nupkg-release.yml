@@ -206,6 +206,7 @@ jobs:
           REPO: ${{ github.repository }}
           FEED_BASE_URI: https://mkopnsrc.github.io/chocolatey-packages/nuget/
           RETENTION_STABLE: '5'
+          RETENTION_PRERELEASE: '0'
         run: |
           $nupkg = (Get-ChildItem $env:RUNNER_TEMP\*.nupkg | Select-Object -First 1).FullName
 
@@ -262,7 +263,9 @@ jobs:
             New-Item -ItemType Directory -Path $feedPath -Force | Out-Null
             sleet init --config $sleetConfig
             if ($LASTEXITCODE -ne 0) { throw "sleet init failed" }
-            sleet retention settings --stable $env:RETENTION_STABLE --config $sleetConfig
+            # sleet requires BOTH --stable AND --prerelease even if the intent
+            # is stable-only (0 prerelease = drop all prerelease versions).
+            sleet retention settings --stable $env:RETENTION_STABLE --prerelease $env:RETENTION_PRERELEASE --config $sleetConfig
             if ($LASTEXITCODE -ne 0) { throw "sleet retention settings failed" }
           }
 
