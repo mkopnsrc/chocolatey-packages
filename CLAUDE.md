@@ -72,6 +72,23 @@ Any `Update-Package` parameter can be set via `$global:au_<ParamName>` (e.g. `$a
 - An `update.ps1` returning the literal string `'ignore'` (or `au_GetLatest` returning `'ignore'` for a stream) flags that run as ignored rather than failed — used for known transient errors. `IgnoreOn` / `RepeatOn` arrays in `$Options` apply this globally by error-message substring without per-package changes.
 - For metapackages depending on another AU package, dot-source the dependency's `update.ps1` and override `au_SearchReplace`. The dependent script must guard its `update` call: `if ($MyInvocation.InvocationName -ne '.') { update ... }`.
 
+### chocolateyInstall.ps1 standards
+
+Every `chocolateyInstall.ps1` for an app package (i.e. anything that shows up in Programs & Features) MUST include an already-installed short-circuit before invoking the installer, with a `--force` escape hatch:
+
+```powershell
+$existing = Get-UninstallRegistryKey -SoftwareName '<display-name-pattern>*'
+if ($existing -and ($env:ChocolateyForce -ne 'true')) {
+    $displayVersion = ($existing | Select-Object -First 1).DisplayVersion
+    Write-Host "<pkg> $displayVersion is already installed (registry). Pass --force to re-install."
+    return
+}
+```
+
+Rationale: prevents silent reinstalls that might overwrite user config or waste bandwidth. `Get-UninstallRegistryKey` ships with Chocolatey's built-in helpers — no per-package `helpers.ps1` needed. Chocolatey sets `$env:ChocolateyForce='true'` when `--force` is passed on the CLI.
+
+Font-only packages (`fonts-*`) and metapackages don't map to an Uninstall registry entry and are exempt from this rule.
+
 ## Testing
 
 Pester tests live in `tests/` and exercise the framework, not the packages:
