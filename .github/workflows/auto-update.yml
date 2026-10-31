@@ -1,0 +1,252 @@
+name: Auto-update packages
+
+# Daily check of every package under automatic/ for a new upstream version.
+#
+#   plan       - runs AU's `updateall` on a Windows runner (no push, no
+#                plugins) and collects the packages AU reports as Updated,
+#                i.e. a newer upstream version exists AND that version is not
+#                already on chocolatey.org (AU's gallery check).
+#   push       - for each updated package, calls package-build-test.yml which
+#                re-runs update.ps1, packs, install-tests on a fresh runner,
+#                and pushes to chocolatey.org.
+#   commit-pr  - collects the bumped package files from the push jobs and opens
+#                one PR so the repo stays in sync with what was published.
+#
+# Idempotent: if the PR is not merged, the next run sees the version already
+# exists on chocolatey.org and skips it.
+#
+# Required repo secrets:
+#   CHOCO_API_KEY  - chocolatey.org community feed API key (inherited by called workflow)
+
+on:
+  schedule:
+    - cron: '17 7 * * *'   # daily, 07:17 UTC
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: 'Space-separated package names to check (default: all under automatic/)'
+        required: false
+        type: string
+        default: ''
+      dry_run:
+        description: 'Plan only — do not push'
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  group: auto-update
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Check packages for upstream updates
+    runs-on: windows-2022
+    timeout-minutes: 45
+    outputs:
+      plan: ${{ steps.compute.outputs.plan }}
+      has_work: ${{ steps.compute.outputs.has_work }}
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install AU module to PSModulePath
+        run: |
+          & "$env:GITHUB_WORKSPACE\install.ps1" -module_path "$env:GITHUB_WORKSPACE\AU"
+
+      - name: Run updateall (no push) and compute plan
+        id: compute
+        env:
+          PACKAGES: ${{ inputs.packages }}
+          # Installers that take longer than package-build-test's timeout;
+          # pack + push still happen, local install test is skipped.
+          SKIP_INSTALL_TEST: 'refinitiv-workspace refinitive-workspace'
+        run: |
+          Import-Module AU
+          $names = if ($env:PACKAGES) { $env:PACKAGES -split '\s+' | Where-Object { $_ } } else { @() }
+
+          # Intentionally no plugins (Git/Gist/GitReleases/...) — this run only
+          # detects updates; the runner's file edits are discarded.
+          $Options = [ordered]@{
+            Timeout       = 100
+            UpdateTimeout = 1200
+            Threads       = 10
+            Push          = $false
+            IgnoreOn      = @(
+              'Could not create SSL/TLS secure channel'
+              'Could not establish trust relationship'
+              'The operation has timed out'
+              'Internal Server Error'
+              'Service Temporarily Unavailable'
+            )
+            RepeatOn      = @(
+              'Could not create SSL/TLS secure channel'
+              'Could not establish trust relationship'
+              'Unable to connect'
+              'The remote name could not be resolved'
+              'Choco pack failed with exit code 1'
+              'The operation has timed out'
+              'Internal Server Error'
+              'An exception occurred during a WebClient request'
+              'remote session failed with an unexpected state'
+            )
+          }
+
+          $global:au_Root       = "$env:GITHUB_WORKSPACE/automatic"
+          $global:au_GalleryUrl = ''
+          $info = if ($names) { updateall -Name $names -Options $Options } else { updateall -Options $Options }
+
+          foreach ($e in @($info.result.errors)) {
+            if ($e) { Write-Host "::warning::$($e.Name): $($e.Error -split "`n" | Select-Object -First 1)" }
+          }
+          foreach ($i in @($info.result.ignored)) {
+            if ($i) { Write-Host "::notice::$($i.Name) ignored: $($i.IgnoreMessage)" }
+          }
+
+          $skip = $env:SKIP_INSTALL_TEST -split '\s+'
+          $plan = @()
+          foreach ($p in @($info.result.updated)) {
+            if (-not $p) { continue }
+            Write-Host "::notice::$($p.Name) : $($p.NuspecVersion) -> $($p.RemoteVersion)"
+            $plan += [pscustomobject]@{
+              package           = $p.Name
+              version           = $p.RemoteVersion
+              skip_install_test = [bool]($p.Name -in $skip)
+            }
+          }
+
+          $json = if ($plan) { ConvertTo-Json -InputObject @($plan) -Compress } else { '[]' }
+          "plan=$json" >> $env:GITHUB_OUTPUT
+          "has_work=$($plan.Count -gt 0)" >> $env:GITHUB_OUTPUT
+
+          $summary = @("## Auto-update plan", "", "Checked: $(@($info.result.all).Count) · Updated: $($plan.Count) · Errors: $($info.error_count.total) · Ignored: $($info.ignored)", "")
+          if ($plan) {
+            $summary += '| Package | Version |', '|---|---|'
+            $summary += $plan | ForEach-Object { "| ``$($_.package)`` | ``$($_.version)`` |" }
+          } else {
+            $summary += 'No packages need updating.'
+          }
+          $summary -join "`n" >> $env:GITHUB_STEP_SUMMARY
+          Write-Host "Plan: $json"
+
+  push:
+    name: "Push ${{ matrix.target.package }} ${{ matrix.target.version }}"
+    needs: plan
+    if: needs.plan.outputs.has_work == 'True' && inputs.dry_run != true
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJson(needs.plan.outputs.plan) }}
+    uses: ./.github/workflows/package-build-test.yml
+    with:
+      package: ${{ matrix.target.package }}
+      run_au: true
+      publish: true
+      skip_install_test: ${{ matrix.target.skip_install_test }}
+    secrets: inherit
+
+  commit-pr:
+    name: Open aggregated PR with bumped package files
+    needs: [plan, push]
+    if: ${{ always() && needs.plan.outputs.has_work == 'True' && inputs.dry_run != true }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download all bumped-package artifacts from this run
+        uses: actions/download-artifact@v5
+        with:
+          path: /tmp/pkgfiles
+          pattern: pkgfiles-*
+        continue-on-error: true
+
+      - name: Apply artifacts to working tree
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Same logic as backfill.yml: the artifacts API is the source of truth
+          # because download-artifact@v5 flattens a single matching artifact
+          # into `path:` but uses per-artifact subdirs when 2+ match.
+          $headers = @{ Authorization = "Bearer $env:GH_TOKEN"; 'User-Agent' = 'mkopnsrc-auto-update/1.0' }
+          $url = "https://api.github.com/repos/$env:GITHUB_REPOSITORY/actions/runs/$env:GITHUB_RUN_ID/artifacts?per_page=100"
+          $apiArtifacts = (Invoke-RestMethod -Uri $url -Headers $headers).artifacts |
+                          Where-Object { $_.name -like 'pkgfiles-*' }
+
+          if (-not $apiArtifacts) {
+            Write-Host "No pkgfiles-* artifacts present — nothing to commit"
+            "APPLIED_COUNT=0" >> $env:GITHUB_ENV
+            return
+          }
+
+          $applied = @()
+          foreach ($a in $apiArtifacts) {
+            if ($a.name -notmatch '^pkgfiles-(.+?)-([\d.]+)$') {
+              Write-Host "::warning::Unexpected artifact name: $($a.name)"
+              continue
+            }
+            $pkg = $matches[1]
+            $version = $matches[2]
+            $dst = "automatic/$pkg"
+            if (-not (Test-Path $dst)) {
+              Write-Host "::warning::Destination $dst missing; skipping $($a.name)"
+              continue
+            }
+
+            $namedSubdir = Join-Path '/tmp/pkgfiles' $a.name
+            $src = if (Test-Path $namedSubdir) { $namedSubdir } elseif ($apiArtifacts.Count -eq 1) { '/tmp/pkgfiles' } else { $null }
+            if (-not $src) {
+              Write-Host "::warning::Could not locate downloaded contents for $($a.name); skipping"
+              continue
+            }
+
+            Write-Host "Applying $($a.name) -> $dst (from $src)"
+            Get-ChildItem -Path $src -Recurse -File -Filter '*.nupkg' | Remove-Item -Force -ErrorAction SilentlyContinue
+            Copy-Item -Recurse -Force "$src/*" "$dst/"
+            $applied += "$pkg=$version"
+          }
+          "APPLIED_COUNT=$($applied.Count)" >> $env:GITHUB_ENV
+          "APPLIED_LIST=$($applied -join '|')" >> $env:GITHUB_ENV
+          Write-Host "Applied: $($applied -join ', ')"
+
+      - name: Commit and open PR
+        if: env.APPLIED_COUNT != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          DATE=$(date -u +%Y-%m-%d-%H%M)
+          BRANCH="bot/auto-update-${DATE}"
+          git checkout -b "$BRANCH"
+          git add automatic/
+          if git diff --cached --quiet; then
+            echo "No changes to commit (artifacts applied but no diff vs master)"
+            exit 0
+          fi
+          BODY_LINES=""
+          IFS='|' read -ra ITEMS <<< "$APPLIED_LIST"
+          for item in "${ITEMS[@]}"; do
+            BODY_LINES="${BODY_LINES}- \`${item%%=*}\` -> \`${item##*=}\`"$'\n'
+          done
+          TITLE="automated: auto-update ${DATE} (${APPLIED_COUNT} packages)"
+          BODY="The packages below had a new upstream version and were pushed to chocolatey.org during this auto-update run. This PR keeps the repo files in sync with what was published.
+
+          Updated:
+          ${BODY_LINES}
+          Each push was built (and, unless skipped, install-tested) on a fresh \`windows-2022\` runner and submitted to chocolatey.org's moderation queue. Merging this PR has no further publishing side-effect.
+          "
+          git commit -m "${TITLE}"
+          git push origin "$BRANCH"
+          gh pr create \
+            --base master \
+            --head "$BRANCH" \
+            --assignee mkopnsrc \
+            --title "${TITLE}" \
+            --body "${BODY}"
